@@ -1,4 +1,4 @@
-# R-script-parasitism
+# R_script_parasitism
 Analysing parasitim data of Youn's postdoc
 
 This repo contains data and code needed to perform the analyses and figures in our manuscript:
