@@ -3,7 +3,7 @@ Analysing parasitim data of Youn's postdoc
 
 This repo contains data and code needed to perform the analyses and figures in our manuscript:
 
-"Not defined yet" (by Youn Henry, Jesper Wallisch, Sandro Ginesi, Maxime Dahirel & Christoph Vorburger)
+"Not defined yet" (by Youn Henry, Jesper Wallisch, Paula Rodriguez, Sandro Ginesi, Maxime Dahirel & Christoph Vorburger)
 
 data in .txt format are in the data folder, R script in Rmd format (including detailed information about the analysis) in the R folder.
 
