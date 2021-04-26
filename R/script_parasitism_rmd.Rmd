@@ -369,6 +369,8 @@ fits_scaled<-data %>%
   mutate(Hamiltonella_host_species= str_remove(Hamiltonella_host_species, " - none"))%>% 
   left_join(translate)
 
+fits_scaled_probs<-fits_scaled %>% 
+  mutate(.value= (exp(.value)/(1+exp(.value))))
 
 ```
 
@@ -380,6 +382,21 @@ ggplot(fits_scaled)+
            normalize="xy",
            .width=c(0.001,0.95),slab_alpha=0.5)+
   geom_hline(yintercept = 0, lty=2)+
+  scale_x_discrete("*Hamiltonella* source")+
+  scale_y_continuous("Relative parasitism success")+
+  facet_wrap(~Origin_para) +
+  theme(
+        #legend.position = "none",
+        strip.text = element_markdown(),
+        axis.text.x = element_markdown(),
+        axis.title.x= element_markdown())
+```
+```{r plot_scaled_probs}
+ggplot(fits_scaled_probs)+
+  stat_eye(aes(Origin_ham,.value),
+           normalize="xy",
+           .width=c(0.001,0.95),slab_alpha=0.5)+
+  geom_hline(yintercept = 0.5, lty=2)+
   scale_x_discrete("*Hamiltonella* source")+
   scale_y_continuous("Relative parasitism success")+
   facet_wrap(~Origin_para) +
