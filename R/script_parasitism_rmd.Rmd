@@ -81,7 +81,7 @@ Take a look at the dataset
 
 ```{r overlook}
 ## tinkering better order of wasps for plotting
-order.wasps=c("Yp20-027",	"Yp20-006",	"Yp20-013",	"Yp20-079",	"Yp20-058",	"Yp20-004",	"Yp20-009",	"Yp20-035",	"Yp20-075",	"F316",	"S251",	"G339",	"G392",	"S350",	"Yp20-003",	"G363",	"Yp20-021",	"Yp20-055",	"Yp20-002",	"Yp20-063",	"Yp20-033",	"Yp20-080",	"Yp20-048",	"Yp20-071",	"Yp20-044")
+order.wasps=c("Yp20-027",	"Yp20-038", "Yp20-081", "Yp20-004", "Yp20-006",	"Yp20-009", "Yp20-013", "Yp20-035", "Yp20-037", "Yp20-050", "Yp20-058", "Yp20-060", "Yp20-068", "Yp20-075",	"Yp20-079",	 "Yp20-084", "F316", "G339", "G363", "G392", "S251", "S350", "Yp20-003", "Yp20-032",	"Yp20-002", "Yp20-021", "Yp20-033", "Yp20-044", "Yp20-048", "Yp20-055", "Yp20-063", "Yp20-070", "Yp20-071", "Yp20-072", "Yp20-080")
 order.aphids=c("NTR-407","TR-0016","TR-0103","TR-0131","TR-0191","TR-0619","TR-0042","TR-0076","TR-0214","TR-0244")
 order.origin=c("Aphis_urticata","Aphis_ruborum","Aphis_fabae_fabae","Aphis_hederae")
 
@@ -104,7 +104,7 @@ success=as.numeric(data$Mummies_amount)/as.numeric(data$Nymphs_corrected)
 data$Parasitism_success=success
 mean_data=group.CI(Parasitism_success ~ Parasitoid_line*Aphid_line, data=data, ci = 0.95)
 mean_data$Wasp_host_species=rep(c(
-  "Aphis_urticata","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_fabae_fabae","Aphis_fabae_fabae","Aphis_fabae_fabae","Aphis_fabae_fabae","Aphis_fabae_fabae","Aphis_fabae_fabae","Aphis_fabae_fabae","Aphis_hederae","Aphis_hederae","Aphis_hederae","Aphis_hederae","Aphis_hederae","Aphis_hederae","Aphis_hederae","Aphis_hederae","Aphis_hederae"
+  "Aphis_urticata","Aphis_urticata","Aphis_urticata","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_ruborum","Aphis_fabae_fabae","Aphis_fabae_fabae","Aphis_fabae_fabae","Aphis_fabae_fabae","Aphis_fabae_fabae","Aphis_fabae_fabae","Aphis_fabae_fabae","Aphis_fabae_fabae","Aphis_hederae","Aphis_hederae","Aphis_hederae","Aphis_hederae","Aphis_hederae","Aphis_hederae","Aphis_hederae","Aphis_hederae","Aphis_hederae","Aphis_hederae","Aphis_hederae"
 ),10)
 
 ## bubble plot
