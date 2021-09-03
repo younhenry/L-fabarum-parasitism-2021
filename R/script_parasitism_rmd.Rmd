@@ -5,12 +5,12 @@ date: ""
 editor_options:
   chunk_output_type: inline
 output:
+  pdf_document:
+    toc: yes
   html_document:
     theme: yeti
     toc: yes
     toc_float: yes
-  pdf_document:
-    toc: yes
 authors: Maxime & Youn
 ---
 
