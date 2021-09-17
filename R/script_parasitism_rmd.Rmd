@@ -131,6 +131,14 @@ bubbles<-ggplot(data=NULL, aes(Parasitoid_line, Aphid_line))+
         axis.ticks=element_line(size=ggSize), 
         axis.line = element_line(size =ggSize, colour='black'))
 bubbles
+
+if(file.exists(here("Plot_bubbles.pdf"))){
+  
+  }else
+    {
+pdf(height=4, width=10, file="Plot_bubbles.pdf")
+bubbles
+dev.off()}
 ```
 
 # Data preparation
