@@ -65,7 +65,7 @@ library(here)      # CRAN v1.0.1
 
 ## some useful default settings
 # rstan_options(auto_write = TRUE) #for rstan
-options(mc.cores = 2) ## reduce/increase depending on cores available
+options(mc.cores = 4) ## reduce/increase depending on cores available
 ```
 
 # Overview
@@ -283,13 +283,18 @@ data<-data %>%
 
 ## Priors
 
-Weakely informative priors from McElreath (2020)
+Weakly informative priors from McElreath (2020)
 ```{r prior}
 prior=c(
   set_prior("normal(0,1.5)", class="b"), # can be improved
+  set_prior("normal(0,1)",class="b",
+            coef=c("Wasp_host_speciesAphis_fabae_fabae",
+                   "Wasp_host_speciesAphis_hederae",
+                   "Wasp_host_speciesAphis_ruborum",
+                   "Wasp_host_speciesAphis_urticata")),
   set_prior("normal(0,1)", class="sd"), # can be replaced by exponential(1) (larger)
   set_prior("lkj(2)",class="cor") ##correlations between random effects
-  # can loose that with lkj(1)
+  # can loosen that with lkj(1)
 )
 
 prior_nocors=c(
@@ -352,8 +357,7 @@ if(file.exists(here("R_output","mod_OLRE.Rdata"))){
 modOLRE <- brm(
   bf(Mummies_amount|trials(Nymphs_corrected)~
        0+Wasp_host_species+Wasp_host_species:Hamiltonella_host_species+ ## origin in the wild are fixed effects
-       (Hamiltonella_host_species|Wasp_genotype)+ ## parasitoid lines have a random effect nested by hamiltonella origin
-       (0+Aphid_line|Wasp_genotype)+ ## hamiltonella lines have a random effect nested by parasitoid genotype
+       (Aphid_line|Wasp_genotype)+ ## hamiltonella lines have a random effect nested by parasitoid genotype
        
        ####CHECK IF CORRECT ORDER OF NESTED EFFECTS
        
@@ -410,7 +414,7 @@ obsmeans<-data %>%
   group_by(Hamiltonella_host_species,
            Wasp_host_species,
            Origin_ham,Origin_para,
-           Parasitoid_line,Aphid_line) %>% 
+           Wasp_genotype,Aphid_line) %>% 
   summarise(mean_obs=mean(Mummies_amount/Nymphs_corrected,na.rm=TRUE),
             sd_obs=sd(Mummies_amount/Nymphs_corrected,na.rm=TRUE),
             N_obs=sum(Nymphs_corrected)) %>% 
@@ -509,7 +513,7 @@ plot_scaled<-ggplot(fits_scaled)+
            .width=c(0.001,0.95),slab_alpha=0.5)+
   geom_hline(yintercept = 0, lty=2)+
   scale_x_discrete("*Hamiltonella* source")+
-  scale_y_continuous("Relative parasitism success")+
+  scale_y_continuous("Relative parasitism success (logit scale)")+
   facet_wrap(~Origin_para) +
   theme(
         #legend.position = "none",
@@ -594,12 +598,11 @@ fits %>%
 fitsRE<-data %>% 
   select(Hamiltonella_host_species,Wasp_host_species,
          Origin_ham,Origin_para,
-         Aphid_line,Parasitoid_line) %>% ## we include "lineage" variables for aphids (hamiltonella) and parasitoids
+         Aphid_line,Wasp_genotype) %>% ## we include "lineage" variables for aphids (hamiltonella) and parasitoids
   distinct() %>% 
   mutate(Nymphs_corrected=1) %>% 
   add_fitted_draws(modOLRE,
-                   re_formula = ~(Hamiltonella_host_species|Parasitoid_line)+
-                     (0+Aphid_line|Parasitoid_line)) %>% # we do not include random effects at a level below lineages
+                   re_formula = ~(Aphid_line|Wasp_genotype)) %>% # we do not include random effects at a level below lineages
   ungroup()
 ```
 
@@ -618,12 +621,60 @@ left_join(obsmeans,fitsRE) %>%
 fitsRE %>% 
   mutate(.iteration=.draw) %>% 
   group_by(Aphid_line) %>% 
-  compare_levels(.value,by=Parasitoid_line) %>% 
+  compare_levels(.value,by=Wasp_genotype) %>% 
   mean_hdi(.value) %>%   ## here with mean, but it also works with mean_hdi, median_qi, mean_qi
   mutate(.value=round(.value, digits = 2)) %>% 
   mutate(.value = cell_spec(.value, color=ifelse(.value > 0 & .lower>0, "green", ifelse(.value<0 & .upper<0, "red", "black"))))%>% 
     kbl(booktabs = T, linesep = "", escape=FALSE) %>%
   kable_paper("striped",full_width = F) %>%
   scroll_box(width = "100%", height = "300px")
+```
+
+# variance partitioning: a quick look
+
+OK so this is a quick look on how much genotype pair-level variance is due to genotype origin vs. anything else about the genotype. It's on the *logit scale* (for how to do on the observed % scale, see: doi:10.1534/genetics.115.186536)(for how to partition the totality of the variance in the model, including within-genotype variance, see e.g. doi:10.1111/j.2041-210x.2012.00261.x and follow up publications by the same)
+
+we first need to estimate the variance explained by fixed effects. Simple: we make predictions based on fixed effects only, then estimate their variance. Important: we make these predictions using every point of the original data (no "use distinct() to keep only one unique value" stuff)
+
+```{r fits_fix_logit}
+fits_logit<-data %>% 
+  select(Hamiltonella_host_species,Wasp_host_species,
+         Origin_ham,Origin_para) %>% 
+  mutate(Nymphs_corrected=1) %>% 
+  add_fitted_draws(modOLRE,re_formula = NA,scale="linear") %>%
+  ungroup()
+
+
+var_fix<- fits_logit %>% 
+  group_by(.draw) %>% 
+  summarise(VF=var(.value))
+```
+
+Now we do the same with the variance explained by line-level random effects. If there were only random intercepts, it would be as simple as extracting the relevant variance parameter (the SDs you see in the summary). But we have random slopes (the wasp genotype-specific effects of each Hamiltonella). So the easier way (we can check later if is strictly right), is to simply do the same as above, but including these random effects in the predictions:
+
+```{r fits_linelevel_logit}
+fits_logit2<-data %>% 
+  select(Hamiltonella_host_species,Wasp_host_species,
+         Origin_ham,Origin_para, 
+         Aphid_line, Wasp_genotype) %>% 
+  mutate(Nymphs_corrected=1) %>% 
+  add_fitted_draws(modOLRE,re_formula = ~(Aphid_line|Wasp_genotype),scale="linear") %>%
+  ungroup()
+
+
+var_partition<- fits_logit2 %>% 
+  group_by(.draw) %>% 
+  summarise(Vline=var(.value)) %>% 
+  left_join(var_fix)
+```
+
+that's it! we can plot it
+
+```{r plot_varpart}
+
+ggplot(var_partition)+
+  geom_halfeyeh(aes(VF/Vline),.width=c(0.001,0.95))+
+  scale_x_continuous("proportion of line-level variation explained by line origin hosts (logit scale)")
+
 ```
 
