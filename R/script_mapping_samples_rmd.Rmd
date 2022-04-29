@@ -1,0 +1,94 @@
+---
+title: Mapping aphid and parasitoid samples
+  aphids
+date: ""
+editor_options:
+  chunk_output_type: inline
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    theme: yeti
+    toc: yes
+    toc_float: yes
+author: Youn
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE)
+```
+
+
+# Packages
+
+```{r packages-loading}
+#[R v4.0.5]
+
+if(require("pacman")==T){
+  library("pacman")
+}else{
+  install.packages("pacman")
+}
+
+if(require("cmdstanr")==T){
+  library("cmdstanr")
+}else{
+  install.packages("cmdstanr", repos = c("https://mc-stan.org/r-packages/", getOption("repos")))
+}
+
+
+pacman::p_load(ggmap,osmdata,plyr,ggforce)
+
+library(here)      # CRAN v1.0.1
+## tool for workspace location management
+## automatically detects the workspace after loading the package if Rstudio was opened using the script file (or with new R project)
+## load last to avoid conflicts
+
+```
+
+# Overview
+
+Loading the data
+
+```{r data-load}
+
+data_aphids=read.table(here("data","aphid_samples_2020.txt"),h=T, dec=".")
+head(data_aphids)
+
+data_parasitoids=read.table(here("data","parasitoid_samples_2020.txt"),h=T, dec=".")
+head(data_parasitoids)
+```
+
+Take a look at the datasets
+
+```{r overlook aphid samples}
+
+mymap=get_stamenmap(bbox = c(left = 8.42, bottom = 47.3, right =8.77, top = 47.52), maptype = "terrain", zoom = 12)
+mapPoints <- ggmap(mymap, darken = c(0.2, "white"))
+mapPoints <- mapPoints + geom_point(data=data_aphids, size=3, alpha=0.6, aes(x=longitude, y=latitude, colour = factor(aphid_species)))+
+  scale_color_manual(values=c("#00a0f0","#5c0aff","#53c71a","#e68a00"))+
+  geom_text(data=subset(data_aphids, data_aphids$transfected=="yes"), size=3, aes(x=longitude, y=latitude, label = sample_id), vjust = 0, hjust = 0)
+
+mapPoints
+
+pdf(height=4, width=5, file=here("R_output","Aphid_map.pdf"))
+mapPoints
+dev.off()
+```
+```{r overlook parasitoid samples}
+
+mymap=get_stamenmap(bbox = c(left = 8.42, bottom = 47.3, right =8.77, top = 47.52), maptype = "terrain", zoom = 12)
+
+mapPoints <- ggmap(mymap, darken = c(0.2, "white"))
+mapPoints <- mapPoints + geom_point(data=subset(data_parasitoids, data_parasitoids$niche=="generalist"), size=3, alpha=0.6, aes(x=longitude, y=latitude, colour = factor(aphid_species)))+
+  geom_point(data=subset(data_parasitoids, data_parasitoids$niche=="specialist"), size=3, alpha=0.6, shape=17, aes(x=longitude, y=latitude, colour = factor(aphid_species)))+
+  scale_color_manual(values=c("#00a0f0","#5c0aff","#53c71a","#e68a00"))+
+  geom_text(data=subset(data_parasitoids, data_parasitoids$niche=="generalist"), size=3, aes(x=longitude, y=latitude, label = genotype), vjust = 0, hjust = 0)
+
+mapPoints
+
+pdf(height=4, width=5, file=here("R_output","Parasitoid_map.pdf"))
+mapPoints
+dev.off()
+```
