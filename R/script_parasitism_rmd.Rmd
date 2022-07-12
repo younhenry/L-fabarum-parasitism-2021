@@ -46,7 +46,7 @@ if(require("cmdstan")==T){
 }
 
 
-pacman::p_load(cmdstanr, brms, Rmisc, tidyverse, patchwork, ggplot2, ggtext, bayesplot, tidybayes, kableExtra, viridis)
+pacman::p_load(cmdstanr, brms, Rmisc, tidyverse, patchwork, ggplot2, ggtext, bayesplot, tidybayes, kableExtra, viridis, boot)
 
 #library(cmdstanr)  # [github::stan-dev/cmdstanr] v0.3.0 
 ## Stan backend
@@ -82,6 +82,8 @@ Loading the data
 raw_data=read.table(here("data","data_parasitism_R.txt"),h=T, dec=".")
 head(raw_data)
 raw_data=subset(raw_data, raw_data$Aphid_line!="TR-0191")
+# I removed one entire transfected line as we realized with sequencing this line was not the one we expected but was identical to another one (TR 619)
+
 data_parasitoids=read.table(here("data","parasitoid_samples_2020.txt"),h=T, dec=".")
 
 ```
@@ -423,6 +425,80 @@ We also have too low prediction of 0, but this is more likely the result of the 
 
 Let's try with OLRE:
 
+```{r trials mods with OLRE}
+
+#########################################################################################
+########################  to suppress !!!! ##############################################
+#########################################################################################
+
+#### Test section to select models
+
+modOLRE1 <- brm(
+  bf(Mummies_amount|trials(Nymphs_corrected)~
+       0 + Wasp_host_species + Wasp_host_species:Hamiltonella_host_species + Hamiltonella_host_species + Wasp_genotype + Wasp_genotype:Wasp_host_species +## origin in the wild are fixed effects
+       (Aphid_line|Wasp_genotype)+ ## hamiltonella lines have a random effect nested by parasitoid genotype
+       (1|replicate_fullID)+ ## random effect of the replicate inside each aphid line (not changing much)
+       (1|observation), ## this is the OLRE
+     family="binomial"),
+  data=data,
+  chains=4, iter=1000, seed=666,
+  prior=prior,
+  ### control=list(adapt_delta=0.9),
+  ### https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+  ### https://mc-stan.org/users/documentation/case-studies/divergences_and_bias.html
+  ###
+  backend="cmdstanr" ## better with "cmdstanr", but rtan does the job as well
+)
+
+
+modOLRE2 <- brm(
+  bf(Mummies_amount|trials(Nymphs_corrected)~
+       0+Wasp_host_species+Wasp_host_species:Hamiltonella_host_species+ ## origin in the wild are fixed effects
+       (Aphid_line|Wasp_genotype)+ ## hamiltonella lines have a random effect nested by parasitoid genotype
+       (1|replicate_fullID)+ ## random effect of the replicate inside each aphid line (not changing much)
+       (1|observation), ## this is the OLRE
+     family="binomial"),
+  data=data,
+  chains=4, iter=1000, seed=666,
+  prior=prior,
+  ### control=list(adapt_delta=0.9),
+  ### https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+  ### https://mc-stan.org/users/documentation/case-studies/divergences_and_bias.html
+  ###
+  backend="cmdstanr" ## better with "cmdstanr", but rtan does the job as well
+)
+
+pp_check(modOLRE1,"stat_2d")
+pp_check(modOLRE2,"stat_2d")
+loo_compare(add_criterion(modOLRE1, c("loo")), add_criterion(modOLRE2, c("loo")))
+
+fits<-data %>% 
+  select(Hamiltonella_host_species,Wasp_host_species,
+         Origin_ham,Origin_para,Origin_para2, Wasp_genotype, Origin_ham2) %>% 
+  distinct() %>% 
+  mutate(Nymphs_corrected=1) %>% 
+  add_fitted_draws(modOLRE1,re_formula = NA) %>%
+  ungroup()
+
+
+fits=fits %>%
+mutate(Origin_ham2 = factor(Origin_ham2, c("*H. defensa* original host: *A. hederae*", "*H. defensa* original host: *A. fabae fabae*", "*H. defensa* original host: *A. ruborum*", "*H. defensa* original host: *A. urticata*", "*H. defensa* original host: none"))) %>%
+  arrange(Origin_ham2)
+
+fits %>% 
+  mutate(.iteration=.draw) %>% 
+  group_by(Hamiltonella_host_species) %>% 
+  compare_levels(.value,by=Wasp_host_species) %>% 
+  mean_hdi(.value) %>%   ## here with mean, but it also works with mean_hdi, median_qi, mean_qi
+  mutate(.value=round(.value, digits = 2)) %>% 
+  mutate(.value = cell_spec(.value, color=ifelse(.value > 0 & .lower>0, "green", ifelse(.value<0 & .upper<0, "red", "black"))))%>% ## color postive and negative values that do not overlap the zero
+    kbl(booktabs = T, linesep = "", escape=FALSE) %>%
+  kable_paper("striped",full_width = F) %>%
+  scroll_box(width = "100%", height = "300px")
+
+
+```
+
 ```{r mod with OLRE}
 if(file.exists(here("R_output","mod_OLRE.Rdata"))){
   load(here("R_output","mod_OLRE.Rdata"))
@@ -431,13 +507,12 @@ if(file.exists(here("R_output","mod_OLRE.Rdata"))){
 modOLRE <- brm(
   bf(Mummies_amount|trials(Nymphs_corrected)~
        0+Wasp_host_species+Wasp_host_species:Hamiltonella_host_species+Hamiltonella_host_species+ ## origin in the wild are fixed effects
-       (Aphid_line|Wasp_genotype)+ ## parasitoid genotypes have a random effect nested by hamiltonella line
+       (Aphid_line|Wasp_genotype)+ ## hamiltonella lines have a random effect nested by parasitoid genotype
        (1|replicate_fullID)+ ## random effect of the replicate inside each aphid line (not changing much)
-       #(1|Block) #+ ## block effect is not valid since it's confounded with parasitoid line
        (1|observation), ## this is the OLRE
      family="binomial"),
   data=data,
-  chains=4, iter=2000, seed=666,
+  chains=4, iter=1000, seed=666,
   prior=prior,
   ### control=list(adapt_delta=0.9),
   ### https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
@@ -464,7 +539,7 @@ Ok, that's better
 
 Let's plot data and make comparisons based on the OLRE model
 
-Predictions base on fixed effects only:
+Predictions based on fixed effects only:
 
 ```{r fits_fix}
 fits<-data %>% 
@@ -489,7 +564,6 @@ obsmeans<-data %>%
             sd_obs=sd(Mummies_amount/Nymphs_corrected,na.rm=TRUE),
             N_obs=sum(Nymphs_corrected)) %>% 
   ungroup()
-obsmeans2<-subset(obsmeans, obsmeans$Aphid_line!="TR-0619")
 ```
 
 Plot
@@ -497,24 +571,30 @@ Plot
 ```{r plot_v1}
 data=data %>%
   mutate(Aphid_line = factor(Aphid_line, levels = order.aphids)) %>%
-  arrange(Aphid_line)
-data=data %>%
+  arrange(Aphid_line) %>%
   mutate(Origin_ham = factor(Origin_ham, levels = c("none", "*A. urticata*", "*A. ruborum*", "*A. fabae fabae*", "*A. hederae*"))) %>%
-  arrange(Origin_ham) 
+  arrange(Origin_ham) %>%
+  mutate(Origin_para = factor(Origin_para, c("*A. urticata*", "*A. ruborum*", "*A. fabae fabae*", "*A. hederae*"))) %>%
+  arrange(Origin_para)
+
+fits=fits %>%
+mutate(Origin_ham2 = factor(Origin_ham2, c("*H. defensa* original host: *A. hederae*", "*H. defensa* original host: *A. fabae fabae*", "*H. defensa* original host: *A. ruborum*", "*H. defensa* original host: *A. urticata*", "*H. defensa* original host: none"))) %>%
+  arrange(Origin_ham2)
 
 plot_v1<-ggplot(fits)+
   geom_boxplot(data=data,
-              aes(Origin_ham,
+              aes(Origin_para,
                   Mummies_amount/Nymphs_corrected,
-                  group=paste(Aphid_line,Wasp_genotype),
-                  color=Aphid_line),
+                  group=paste(Aphid_line, Parasitoid_line),
+                  color= Aphid_line),
               alpha=0.3)+
-  stat_eye(aes(Origin_ham,.value),
+  stat_eye(aes(Origin_para,.value),
            normalize="xy",
            .width=c(0.001,0.95),slab_alpha=0.5)+
-  scale_x_discrete("*Hamiltonella* source")+
+  scale_x_discrete("*L. fabarum* original host")+
   scale_y_continuous("Proportion of nymphs parasitized")+
-  facet_wrap(~Origin_para2) +
+  facet_wrap(~Origin_ham2, nrow = 5) +
+  theme_bw(base_size = 12)+
   theme(
         #legend.position = "none",
         strip.text = element_markdown(),
@@ -522,14 +602,13 @@ plot_v1<-ggplot(fits)+
         axis.title.x= element_markdown())
 
 
-
 if(file.exists(here("R_output","Parasitism_all_lines_modOLRE.pdf"))){
-plot_v1+scale_color_manual(values = c("black","#ffc266", "#e68a00", "#995c00", "#53c71a", "#4dc3ff", "#00a0f0", "#9966ff", "#5c0aff"))+
+plot_v1+scale_color_manual(values = rep(c("black","#ffc266", "#e68a00", "#995c00", "#53c71a", "#4dc3ff", "#00a0f0", "#9966ff", "#5c0aff"),4))+
 theme(legend.position = "none")
 
 }else
     {
-pdf(height=4, width=10, file=here("R_output","Parasitism_all_lines_modOLRE.pdf"))
+pdf(height=8, width=5, file=here("R_output","Parasitism_all_lines_modOLRE.pdf"))
 plot_v1+scale_color_manual(values = c("black","#ffc266", "#e68a00", "#995c00", "#53c71a", "#4dc3ff", "#00a0f0", "#9966ff", "#5c0aff"))+
 theme(legend.position = "none")
 dev.off()}
@@ -543,16 +622,18 @@ obsmeans=obsmeans %>%
 
 plot_v2<-ggplot(fits)+
   geom_jitter(data=obsmeans,
-              aes(Origin_ham,
-                  mean_obs, color=Origin_ham),
-              height=0,width=0.25,
+              aes(Origin_para,
+                  mean_obs, color=Origin_para),
+              height=0,width=0.2,
               size=2,alpha=0.7)+
-  stat_eye(aes(Origin_ham,.value),
+  stat_eye(aes(Origin_para,.value),
            normalize="xy",
            .width=c(0.001,0.95),slab_alpha=0.5)+
-  scale_x_discrete("*Hamiltonella* source")+
+  scale_x_discrete("*L. fabarum* original host")+
   scale_y_continuous("Proportion of nymphs parasitized")+
-  facet_wrap(~Origin_para2) +
+  facet_wrap(~Origin_ham2, nrow = 5) +
+  theme_bw(base_size = 12)+
+  theme(panel.grid.minor = element_blank())+
   theme(
         #legend.position = "none",
         strip.text = element_markdown(),
@@ -561,11 +642,11 @@ plot_v2<-ggplot(fits)+
 
 
 if(file.exists(here("R_output","Parasitism_by_ham_origin_modOLRE.pdf"))){
-plot_v2+scale_color_manual(values = c("black","#e68a00","#53c71a","#00a0f0","#5c0aff"))+
+plot_v2+scale_color_manual(values = c("#e68a00","#53c71a","#00a0f0","#5c0aff"))+
 theme(legend.position = "none")
 }else
     {
-pdf(height=4, width=10, file=here("R_output","Parasitism_by_ham_origin_modOLRE.pdf"))
+pdf(height=5, width=4, file=here("R_output","Parasitism_by_ham_origin_modOLRE.pdf"))
 plot_v2+scale_color_manual(values = c("black","#e68a00","#53c71a","#00a0f0","#5c0aff"))+
 theme(legend.position = "none")
 dev.off()}
@@ -591,16 +672,29 @@ fits_scaled<-data %>%
   group_by(Wasp_host_species) %>% 
   compare_levels(.value,by=Hamiltonella_host_species, comparison = "control") %>%
   mutate(Hamiltonella_host_species= str_remove(Hamiltonella_host_species, " - none"))%>% 
-  left_join(translate)
+  left_join(translate)%>% 
+  mutate(Origin_para = factor(Origin_para, c("*A. urticata*", "*A. ruborum*", "*A. fabae fabae*", "*A. hederae*"))) %>%
+  mutate(Origin_ham2 = factor(Origin_ham2, c("*H. defensa* original host: *A. hederae*", "*H. defensa* original host: *A. fabae fabae*", "*H. defensa* original host: *A. ruborum*", "*H. defensa* original host: *A. urticata*", "*H. defensa* original host: none"))) %>%
+  arrange(Origin_para) %>%
+  arrange(Origin_ham2)
 
 fits_scaled_probs<-fits_scaled %>% 
   mutate(.value= (exp(.value)/(1+exp(.value))))
+
+
+obsmeans<- obsmeans %>%
+  mutate(relative_mean_obs = mean_obs - subset(obsmeans$mean_obs, obsmeans$Hamiltonella_host_species=="none"))  %>%
+  mutate(Origin_para = factor(Origin_para, c("*A. urticata*", "*A. ruborum*", "*A. fabae fabae*", "*A. hederae*"))) %>%
+  arrange(Origin_para)
+
+
+
 
 ```
 
 Scaled plot
 
-```{r plot_scaled_by_parasitoid_origin}
+```{r plot_scaled_by_hamiltonella_origin}
 plot_scaled<-ggplot(fits_scaled)+
   stat_eye(aes(Origin_ham,.value,fill = Origin_ham),
            normalize="xy",
@@ -609,6 +703,7 @@ plot_scaled<-ggplot(fits_scaled)+
   scale_x_discrete("*H. defensa* origin")+
   scale_y_continuous("Relative parasitism success (logit scale)")+
   facet_wrap(~Origin_para2, nrow = 4) +
+  theme_bw(base_size = 12)+
   theme(
         #legend.position = "none",
         strip.text = element_markdown(),
@@ -630,8 +725,8 @@ dev.off()}
 
 ```
 
-```{r plot_scaled_by_Hamiltonella_origin}
-plot_scaled2<-ggplot(fits_scaled)+
+```{r plot_scaled_by_parasitoid_origin}
+plot_scaled2<-ggplot(subset(fits_scaled, fits_scaled$Hamiltonella_host_species!="none"))+
   stat_eye(aes(Origin_para,.value,fill = Origin_para),
            normalize="xy",
            .width=c(0.001,0.95),slab_alpha=0.5)+
@@ -639,6 +734,7 @@ plot_scaled2<-ggplot(fits_scaled)+
   scale_x_discrete("*L. fabarum* original host")+
   scale_y_continuous("Relative parasitism success (logit scale)")+
   facet_wrap(~Origin_ham2, nrow = 4) +
+  theme_bw(base_size = 12)+
   theme(
         #legend.position = "none",
         strip.text = element_markdown(),
@@ -661,14 +757,26 @@ dev.off()}
 ```
 
 ```{r plot_scaled_probs}
+
+
+###################################################################################################################
+############################### work in progress ##################################################################
+###################################################################################################################
+
 plot_scaled_probs<-ggplot(fits_scaled_probs)+
-  stat_eye(aes(Origin_ham,.value,fill=Origin_ham),
+  geom_jitter(data=subset(obsmeans, obsmeans$Hamiltonella_host_species!="none"),
+              aes(Origin_para,
+                  relative_mean_obs, color=Origin_para),
+              height=0,width=0.2,
+              size=2,alpha=0.7)+
+  stat_eye(aes(Origin_para,.value,fill=Origin_para),
            normalize="xy",
            .width=c(0.001,0.95),slab_alpha=0.5)+
-  geom_hline(yintercept = 0.5, lty=2)+
+  geom_hline(yintercept = 0, lty=2)+
   scale_x_discrete("*Hamiltonella* source")+
   scale_y_continuous("Relative parasitism success")+
-  facet_wrap(~Origin_para2) +
+  facet_wrap(~Origin_ham2, nrow = 4) +
+  theme_bw(base_size = 12)+
   theme(
         #legend.position = "none",
         strip.text = element_markdown(),
@@ -754,6 +862,11 @@ left_join(obsmeans,fitsRE) %>%
 
 
 ```{r}
+
+############################################################################################################
+########################## I don't remember what I wanted to do with this one ##############################
+############################################################################################################
+
 fitsRE %>% 
   mutate(.iteration=.draw) %>% 
   group_by(Aphid_line) %>% 
