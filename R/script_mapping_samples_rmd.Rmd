@@ -1,0 +1,142 @@
+---
+title: "Mapping aphid and parasitoid samples"
+date: ""
+editor_options:
+  chunk_output_type: inline
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    theme: yeti
+    toc: yes
+    toc_float: yes
+author: Youn
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE)
+```
+
+
+# Packages
+
+```{r packages-loading}
+# [R v4.2.1]
+library(tidyverse) # CRAN v1.3.1
+library(ggmap)     # CRAN v3.0.0
+library(osmdata)   # CRAN v0.1.10
+library(ggtext)    # CRAN v0.1.1
+library(ggrepel)   # CRAN v0.9.1
+library(patchwork) # CRAN v1.1.1
+library(here)      # CRAN v1.0.1
+## tool for workspace location management
+## automatically detects the workspace after loading the package if Rstudio was opened using the script file (or with new R project)
+## load last to avoid conflicts
+```
+
+# Overview
+
+Loading the data
+
+```{r data-load}
+data_aphids <- read.table(here("data", "aphid_samples_2020.txt"),
+  h = T, dec = "."
+) %>%
+  mutate(aphid_species = str_replace_all(aphid_species, "_", " ")) %>%
+  mutate(aphid_species = paste("*", aphid_species, "*", sep = ""))
+
+head(data_aphids)
+data_parasitoids <- read.table(here("data", "parasitoid_samples_2020.txt"),
+                               h = T, dec = ".") %>%
+  mutate(aphid_species = str_replace_all(aphid_species, "_", " ")) %>%
+  mutate(aphid_species = paste("*", aphid_species, "*", sep = ""))
+
+head(data_parasitoids)
+```
+
+Take a look at the datasets
+
+```{r overlook aphid samples}
+mymap <- get_stamenmap(
+  bbox = c(
+    left = 8.42,
+    bottom = 47.3,
+    right = 8.77,
+    top = 47.52
+  ),
+  maptype = "terrain", zoom = 12
+)
+
+mapPointsA <- ggmap(mymap, darken = c(0.2, "white"))
+
+mapPointsA <- mapPointsA +
+  geom_point(
+    data = data_aphids,
+    aes(x = longitude, y = latitude, colour = aphid_species),
+    size = 3, alpha = 0.6
+  ) +
+  geom_text_repel(
+    data = subset(data_aphids, data_aphids$transfected == "yes"),
+    aes(x = longitude, y = latitude, 
+        label = sample_id),
+    size = 3, vjust = 0, hjust = 0
+  ) +
+  labs(x = "longitude", y = "latitude") +
+  scale_color_manual(name = "Host species", 
+                     values = c("#00a0f0", "#5c0aff", "#53c71a", "#e68a00")) +
+  geom_richtext(data=data.frame(), 
+             aes(label = '*H. defensa*', x = Inf, y = Inf),
+             hjust=1,vjust=1,label.size=NA)+
+  theme(legend.text = element_markdown())
+
+mapPointsA
+
+pdf(height = 4, width = 5, file = here("R_output", "Aphid_map.pdf"))
+mapPointsA
+dev.off()
+```
+
+```{r overlook parasitoid samples}
+mapPointsP <- ggmap(mymap, darken = c(0.2, "white"))
+
+mapPointsP <- mapPointsP +
+  geom_point(
+    data = data_parasitoids,
+    aes(
+      x = longitude, y = latitude,
+      colour = aphid_species,
+      shape = niche
+    ),
+    size = 3, alpha = 0.6
+  ) +
+  geom_text_repel(
+    data = subset(
+      data_parasitoids,
+      data_parasitoids$niche == "generalist"
+    ),
+    aes(x = longitude, y = latitude, label = genotype),
+    size = 3, vjust = 0, hjust = 0
+  ) +
+  labs(x = "longitude", y = "latitude") +
+  scale_color_manual(name = "Host species", 
+                     values = c("#00a0f0", "#5c0aff", "#53c71a", "#e68a00")) +
+  scale_shape_discrete("Range of hosts") +
+  geom_label(data=data.frame(), 
+             aes(label = 'Parasitoids', x = Inf, y = Inf),
+             hjust=1,vjust=1,label.size=NA)+
+  theme(legend.text = element_markdown())
+
+mapPointsP
+
+pdf(height = 4, width = 5, file = here("R_output", "Parasitoid_map.pdf"))
+mapPointsP
+dev.off()
+```
+
+
+```{r}
+(mapPointsA|mapPointsP)+
+  plot_layout(guides = 'collect')
+```
+

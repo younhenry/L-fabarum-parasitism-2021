@@ -20,26 +20,26 @@ knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE
 # Packages
 
 ```{r packages-loading}
-# [R v4.0.5]
+# [R v4.2.1]
 
-library(Rmisc)
+# library(Rmisc)
 
-library(tidyverse)
+library(tidyverse) # CRAN v1.3.1
 
 # there is a known but (as of July 2022) not yet corrected weird dbplyr-related error if brms is loaded *before* the tidyverse
 # no issue at all if loaded after
-library(cmdstanr)
-library(brms)
+library(cmdstanr) # [github::stan-dev/cmdstanr] v0.5.2
+library(brms) # CRAN v2.17.0
 
-library(bayesplot)
-library(tidybayes)
+library(bayesplot) # CRAN v1.9.0
+library(tidybayes) # CRAN v3.0.2
 
-library(patchwork)
-library(ggtext)
+library(patchwork) # CRAN v1.1.1
+library(ggtext) # CRAN v0.1.1
 
-library(kableExtra)
-library(viridis)
-library(boot)
+library(kableExtra) # CRAN v1.3.4
+library(viridis) # CRAN v0.6.2
+# library(boot)
 
 library(here) # CRAN v1.0.1
 
@@ -51,7 +51,7 @@ options(mc.cores = 4) ## reduce/increase depending on cores available
 ## Loading the data
 
 ```{r data-load}
-raw_data <- read.table(here("data", "data_parasitism_R.txt"), h = T, dec = ".") 
+raw_data <- read.table(here("data", "data_parasitism_R.txt"), h = T, dec = ".")
 
 head(raw_data)
 ```
@@ -71,8 +71,9 @@ this dataset contains all the information about the transfection experiments:
 - `Hatching_wasps`:   
 
 ```{r data-load2}
-data_parasitoids <- read.table(here("data", "parasitoid_samples_2020.txt"), 
-                               h = T, dec = ".")
+data_parasitoids <- read.table(here("data", "parasitoid_samples_2020.txt"),
+  h = T, dec = "."
+)
 ```
 
 This dataset contains some metadata-like info about the parasitoid lines used in the experiment:
@@ -83,51 +84,112 @@ This dataset contains some metadata-like info about the parasitoid lines used in
 - `site`:
 - `aphid_species`:
 - `genotype`:
-- `niche` 
+- `niche`:
 
 
 ## Prepping the data
 
-We remove one entire transfected line from the loaded raw data, as we realized with sequencing that this line was not the one we expected but was identical to another one (TR 619).
+We had to remove one entire aphid line from the loaded raw data, as we realized with sequencing that this line was not the one we expected but was identical to another one (TR 619).
 We also remove 4 rows (out of >1800) scored `NA` due to experimental error (e.g. missing parasitoid).
 Then we create a full ID for the aphid lines replicates
 
 ```{r overlook}
-data <- na.omit(raw_data) %>% 
+data <- na.omit(raw_data) %>%
   filter(Aphid_line != "TR-0191") %>%
   mutate(
     replicate_fullID = paste(Aphid_line, Replicate)
   )
 ```
 
-From there we continue by converting aphid and parasitoid line-level info to factor, and re-order the factor levels in ways that are visually appealing for some plots:
-```{r overlook}
+From there we continue by converting aphid and parasitoid line-level info to factor, and re-order the factor levels in a custom way that's visually appealing for some plots:
+```{r overlook2}
 ## tinkering better order of wasps for plotting
+order.origin <- c(
+  "Aphis_urticata", "Aphis_ruborum", "Aphis_fabae_fabae",
+  "Aphis_hederae"
+)
 
-order.wasps <- c("Yp20-027", "Yp20-038", "Yp20-081", "Yp20-004", "Yp20-006", 
-                 "Yp20-009", "Yp20-013", "Yp20-035", "Yp20-037", "Yp20-050", 
-                 "Yp20-058", "Yp20-060", "Yp20-068", "Yp20-075", "Yp20-079", 
-                 "Yp20-084", "F316", "G339", "G363", "G392", "S251", "S350", 
-                 "Yp20-003", "Yp20-032", "Yp20-002", "Yp20-021", "Yp20-033", 
-                 "Yp20-044", "Yp20-048", "Yp20-055", "Yp20-063", "Yp20-070", 
-                 "Yp20-071", "Yp20-072", "Yp20-080")
-order.aphids <- c("NTR-407", "TR-0016", "TR-0103", "TR-0131", "TR-0619", 
-                  "TR-0042", "TR-0076", "TR-0214", "TR-0244")
-order.origin <- c("Aphis_urticata", "Aphis_ruborum", "Aphis_fabae_fabae", 
-                  "Aphis_hederae")
-order.genotypes <- as.factor(c(12, 11, 3, 15, 18, 19, 16, 17, 14, 13, 6, 8, 7, 
-                               1, 9, 2, 10, 5, 4))
+data <- data %>%
+  mutate(Wasp_host_species = factor(Wasp_host_species,
+    levels = order.origin
+  ))
+
+order.wasps <- data %>%
+  select(Wasp_host_species, Parasitoid_line) %>%
+  distinct() %>%
+  arrange(Wasp_host_species, Parasitoid_line) %>%
+  pull(Parasitoid_line)
+
+
+order.aphids <- data %>%
+  select(Hamiltonella_host_species, Aphid_line) %>%
+  distinct() %>%
+  group_by(Hamiltonella_host_species, Aphid_line) %>%
+  pull(Aphid_line)
+
+
+order.genotypes <- as.factor(c(
+  12, 11, 3, 15, 18, 19, 16, 17, 14, 13, 6, 8, 7,
+  1, 9, 2, 10, 5, 4
+))
 
 
 data <- data %>%
-  mutate(Parasitoid_line = factor(Parasitoid_line, levels = order.wasps)) %>%
-  arrange(Parasitoid_line) %>% 
-  mutate(Aphid_line = factor(Aphid_line, levels = order.aphids)) %>%
-  arrange(Aphid_line) %>%
-  mutate(Hamiltonella_host_species = factor(Hamiltonella_host_species, 
-                                            levels = c("none", order.origin))
-         ) %>%
-  arrange(Hamiltonella_host_species)
+  mutate(
+    Hamiltonella_host_species = factor(Hamiltonella_host_species,
+      levels = c("none", order.origin)
+    ),
+    Parasitoid_line = factor(Parasitoid_line, levels = order.wasps),
+    Aphid_line = factor(Aphid_line, levels = order.aphids)
+  ) %>%
+  arrange(Parasitoid_line, Aphid_line, Hamiltonella_host_species)
+```
+
+# Some data relabelling
+
+We are going to slightly relabel some variables so that the values are more plot-friendly (no underscores, added italics for species names...). We also reorder levels so that the no-Hamiltonella controls are the first levels in their corresponding factor variables
+
+```{r data-preparation}
+
+data <- data %>%
+  #                 # create origin columns with no underscore for goood looking plots
+  ## and species names we will be able to display
+  ## in italic using the markdown facilities in ggtext
+  mutate(
+    Origin_para = str_replace_all(Wasp_host_species, "_", " "),
+    Origin_ham = str_replace_all(Hamiltonella_host_species, "_", " ")
+  ) %>%
+  mutate(
+    Origin_para = str_replace_all(Origin_para, "Aphis", "A."),
+    Origin_ham = str_replace_all(Origin_ham, "Aphis", "A.")
+  ) %>%
+  mutate(Origin_para2 = factor(paste("Parasitoid original host: *",
+    Origin_para, "*",
+    sep = ""
+  ))) %>%
+  mutate(Origin_para = paste("*", Origin_para, "*", sep = "")) %>%
+  mutate(Origin_ham = paste("*", Origin_ham, "*", sep = "")) %>%
+  mutate(Origin_ham = fct_recode(Origin_ham, none = "*none*")) %>%
+  mutate(Origin_ham2 = factor(paste("*H. defensa* original host: ",
+    Origin_ham, "",
+    sep = ""
+  ))) %>%
+  ## we finish by ensuring the no-Ham control is the first level for both
+  ## Aphid_line and host_origin variables, for the model
+  mutate(
+    Aphid_line = fct_relevel(Aphid_line,
+      "NTR-407",
+      after = 0
+    ),
+    Hamiltonella_host_species = fct_relevel(factor(Hamiltonella_host_species),
+      "none",
+      after = 0
+    ),
+    Origin_ham = fct_relevel(factor(Origin_ham),
+      "none",
+      after = 0
+    )
+  )
 ```
 
 
@@ -138,32 +200,26 @@ data <- data %>%
 
 To have a rough look at how parasitism success is distributed among line combination, we can build some bubble-like plots.
 
-We start by making a summary object that contains the mean parasitism success and its CI (under a simplified binomial assumption _ see models later for how it does not work)
+We start by making a summary object that contains the mean parasitism success per strain combo (*Hamiltonella* x parasitoid):
 
-```{r overlook}
-mean_data=data %>% 
-  mutate(Parasitism_success = Mummies_amount / Nymphs_corrected) %>% 
-  group_by(Parasitoid_line,Aphid_line, Wasp_genotype, Wasp_host_species) %>% 
-  summarise(sum_N_nymphs=sum(Nymphs_corrected),
-            sum_N_mummies=sum(Mummies_amount),
-            Parasitism_success.mean2 = mean(Parasitism_success)) %>% 
-  mutate(Parasitism_success.mean = sum_N_mummies/sum_N_nymphs) %>%   
-  # Parasitism_success.mean = I'm getting the mean % by pooling the successes and failures and then estimating the %
-  # but if you want to calculate the % per obs then averaging those (what was in the code before), easy to do too, that's Parasitism_success.mean2
-  mutate(Parasitism_success.lower=map2(.x=sum_N_mummies,.y=sum_N_nymphs,
-                                       .f= function(x=.x,n=.y){
-                                         return(binom.test(x=x,n=n)$conf.int[1])
-                                       }),
-         Parasitism_success.upper=map2(.x=sum_N_mummies,.y=sum_N_nymphs,
-                                       .f= function(x=.x,n=.y){
-                                         return(binom.test(x=x,n=n)$conf.int[2])
-                                       })) %>% 
-  unnest(c(Parasitism_success.lower,Parasitism_success.upper)) %>% 
+```{r lines_means}
+obsmeans <- data %>%
+  group_by(
+    Hamiltonella_host_species,
+    Wasp_host_species,
+    Origin_ham, Origin_para, Origin_para2,
+    Wasp_genotype, Parasitoid_line, Aphid_line, Origin_ham2
+  ) %>%
+  summarise(
+    mean_success_obs = mean(Mummies_amount / Nymphs_corrected, na.rm = TRUE),
+    sd_obs = sd(Mummies_amount / Nymphs_corrected, na.rm = TRUE),
+    N_obs = sum(Nymphs_corrected)
+  ) %>%
   ungroup()
 ```
 
 
-```{r overlook}
+```{r overlook3}
 ## bubble plot
 
 colors <- c("#66ccff", "#aa80ff", "#88ff4d", "#ff9900")
@@ -171,17 +227,21 @@ colors <- c("#66ccff", "#aa80ff", "#88ff4d", "#ff9900")
 
 ggSize <- 0.25
 bubbles <- ggplot(data = NULL, aes(Parasitoid_line, Aphid_line)) +
-  geom_point(data = mean_data, 
-             aes(size = Parasitism_success.mean * 25, color = Wasp_host_species), 
-             shape = 16) + ## adjust size to frequency
-  geom_text(data = mean_data[mean_data$Parasitism_success.mean >= 0.01, ], 
-            aes(label = round(Parasitism_success.mean * 100, 0)), 
-            size = 3.5) +
+  geom_point(
+    data = obsmeans,
+    aes(size = mean_success_obs * 25, color = Wasp_host_species),
+    shape = 16
+  ) + ## adjust size to frequency
+  geom_text(
+    data = obsmeans[obsmeans$mean_success_obs >= 0.01, ],
+    aes(label = round(mean_success_obs * 100, 0)),
+    size = 3.5
+  ) +
   scale_shape_identity() +
   scale_size_identity() + ## do not plot zero frequency
   scale_colour_manual(values = colors) + ## define custom colors for protected and unprotected
-  scale_x_discrete(limits = levels(mean_data$Parasitoid_line)) + ## reorder axes according to levels of factor
-  scale_y_discrete(labels = levels(mean_data$Aphid_line)) +
+  scale_x_discrete(limits = levels(obsmeans$Parasitoid_line)) + ## reorder axes according to levels of factor
+  scale_y_discrete(labels = levels(obsmeans$Aphid_line)) +
   labs(title = NULL, x = "Parasitoid line", y = "Aphid line") +
   theme(legend.position = "none") +
   ## geom_hline(yintercept=1.5,lwd=ggSize)+
@@ -213,32 +273,38 @@ if (file.exists(here("R_output", "Plot_bubbles.pdf"))) {
 ```{r overlook by genotype}
 ## bubble plot
 
-order.wasps.genotype <- c("Yp20-027", "Yp20-004", "Yp20-058", "Yp20-075", 
-                          "Yp20-081", "S251", "Yp20-070", "Yp20-003", 
-                          "Yp20-021", "Yp20-044", "Yp20-055", "Yp20-072", 
-                          "Yp20-080", "Yp20-038", "Yp20-006", "Yp20-013", 
-                          "Yp20-035", "Yp20-009", "Yp20-079", "Yp20-037", 
-                          "Yp20-050", "Yp20-060", "Yp20-068", "Yp20-084", 
-                          "F316", "G339", "G363", "G392", "S350", "Yp20-032", 
-                          "Yp20-002", "Yp20-033", "Yp20-048", "Yp20-063", 
-                          "Yp20-071")
+order.wasps.genotype <- c(
+  "Yp20-027", "Yp20-004", "Yp20-058", "Yp20-075",
+  "Yp20-081", "S251", "Yp20-070", "Yp20-003",
+  "Yp20-021", "Yp20-044", "Yp20-055", "Yp20-072",
+  "Yp20-080", "Yp20-038", "Yp20-006", "Yp20-013",
+  "Yp20-035", "Yp20-009", "Yp20-079", "Yp20-037",
+  "Yp20-050", "Yp20-060", "Yp20-068", "Yp20-084",
+  "F316", "G339", "G363", "G392", "S350", "Yp20-032",
+  "Yp20-002", "Yp20-033", "Yp20-048", "Yp20-063",
+  "Yp20-071"
+)
 
 ## get the information on which genotype is generalist or specialist from the data_parasitoids table
 
-niche_info = data_parasitoids %>% 
-  select(Wasp_genotype=genotype,niche) %>% 
+niche_info <- data_parasitoids %>%
+  select(Wasp_genotype = genotype, niche) %>%
   distinct()
 
-mean_data2 <- mean_data %>%
-  left_join(niche_info) %>% 
-  mutate(Parasitoid_line = factor(Parasitoid_line, 
-                                  levels = order.wasps.genotype),
-         Wasp_genotype = factor(Wasp_genotype, 
-                                levels = order.genotypes),
-         Wasp_host_species = factor(Wasp_host_species, 
-                                    levels = order.origin),
-         niche = factor(niche, levels = c("generalist", "specialist"))) %>%
-  arrange(Parasitoid_line) %>%
+obsmeans2 <- obsmeans %>%
+  left_join(niche_info) %>%
+  mutate(
+    Parasitoid_line = factor(Parasitoid_line,
+      levels = order.wasps.genotype
+    ),
+    Wasp_genotype = factor(Wasp_genotype,
+      levels = order.genotypes
+    ),
+    Wasp_host_species = factor(Wasp_host_species,
+      levels = order.origin
+    ),
+    niche = factor(niche, levels = c("generalist", "specialist"))
+  ) %>%
   arrange(Wasp_host_species) %>%
   arrange(Wasp_genotype) %>%
   arrange(niche)
@@ -248,29 +314,39 @@ colors2 <- c("#ff9900", "#88ff4d", "#66ccff", "#aa80ff")
 
 ggSize <- 0.25
 bubbles_genotype <- ggplot(data = NULL, aes(Parasitoid_line, Aphid_line)) +
-  geom_point(data = mean_data2, 
-             aes(size = Parasitism_success.mean * 25, color = Wasp_host_species),
-             shape = 16) + ## adjust size to frequency
-  geom_text(data = mean_data2[mean_data2$Parasitism_success.mean >= 0.01, ], 
-            aes(label = round(Parasitism_success.mean * 100, 0)), 
-            size = 3.5) +
-  geom_text(data = mean_data2, 
-            aes(label = Wasp_genotype, x = Parasitoid_line, y = 9.8), 
-            size = 3.5) +
+  geom_point(
+    data = obsmeans2,
+    aes(size = mean_success_obs * 25, color = Wasp_host_species),
+    shape = 16
+  ) + ## adjust size to frequency
+  geom_text(
+    data = obsmeans2[obsmeans2$mean_success_obs >= 0.01, ],
+    aes(label = round(mean_success_obs * 100, 0)),
+    size = 3.5
+  ) +
+  geom_text(
+    data = obsmeans2,
+    aes(label = Wasp_genotype, x = Parasitoid_line, y = 9.8),
+    size = 3.5
+  ) +
   scale_shape_identity() +
   scale_size_identity() + ## do not plot zero frequency
   scale_colour_manual(values = colors2) + ## define custom colors for protected and unprotected
   scale_x_discrete(
-    limits = c(levels(mean_data2$Parasitoid_line)[1:4], "", 
-               levels(mean_data2$Parasitoid_line)[5:7], "", 
-               levels(mean_data2$Parasitoid_line)[8:13], "", "", 
-               levels(mean_data2$Parasitoid_line)[14:35]), 
-    labels = c(levels(mean_data2$Parasitoid_line)[1:4], "", 
-               levels(mean_data2$Parasitoid_line)[5:7], "", 
-               levels(mean_data2$Parasitoid_line)[8:13], "", "", 
-               levels(mean_data2$Parasitoid_line)[14:35])
-    ) +
-  scale_y_discrete(labels = levels(mean_data2$Aphid_line), expand = c(0, 1)) +
+    limits = c(
+      levels(obsmeans2$Parasitoid_line)[1:4], "",
+      levels(obsmeans2$Parasitoid_line)[5:7], "",
+      levels(obsmeans2$Parasitoid_line)[8:13], "", "",
+      levels(obsmeans2$Parasitoid_line)[14:35]
+    ),
+    labels = c(
+      levels(obsmeans2$Parasitoid_line)[1:4], "",
+      levels(obsmeans2$Parasitoid_line)[5:7], "",
+      levels(obsmeans2$Parasitoid_line)[8:13], "", "",
+      levels(obsmeans2$Parasitoid_line)[14:35]
+    )
+  ) +
+  scale_y_discrete(labels = levels(obsmeans2$Aphid_line), expand = c(0, 1)) +
   labs(title = NULL, x = "Parasitoid line", y = "Aphid line") +
   theme(legend.position = "none") +
   coord_cartesian(clip = "off") +
@@ -283,8 +359,10 @@ bubbles_genotype <- ggplot(data = NULL, aes(Parasitoid_line, Aphid_line)) +
     plot.margin = margin(5.5, 5.5, 5.5, 5.5, "points"),
     axis.title.y = element_text(size = 12),
     axis.title.x = element_text(size = 12, vjust = -1),
-    axis.text.x = element_text(angle = 90, size = 10, 
-                               colour = "black", vjust = 0.4, hjust = 1),
+    axis.text.x = element_text(
+      angle = 90, size = 10,
+      colour = "black", vjust = 0.4, hjust = 1
+    ),
     axis.text.y = element_text(size = 10, colour = "black"),
     axis.ticks = element_line(size = ggSize),
     axis.line = element_line(size = ggSize, colour = "black")
@@ -295,160 +373,22 @@ bubbles_genotype
 if (file.exists(here("R_output", "Plot_bubbles_genotype.pdf"))) {
 
 } else {
-  pdf(height = 4, width = 11, file = here("R_output", "Plot_bubbles_genotype.pdf"))
+  pdf(
+    height = 4, width = 11,
+    file = here("R_output", "Plot_bubbles_genotype.pdf")
+  )
   bubbles_genotype
   dev.off()
 }
 ```
 
-### [MAY BE PROBLEMATIC, FATE TO BE DECIDED] Parasitism success relative to a reference condition
-
-First, let's do a plot where we show the line level parasitism success relative to control
-
-
-```{r data exploration plot #1 parasitism success relative to control}
-data_control <- subset(data, Hamiltonella_host_species == "none")
-mean10 <- group.CI(Parasitism_success ~ Aphid_line, data = data_control, ci = 0.95)
-mean10 <- mean10 %>%
-  mutate(Aphid_line = factor(Aphid_line, levels = order.aphids)) %>%
-  arrange(Aphid_line)
-
-mean11 <- group.CI(Parasitism_success ~ Aphid_line, data = data, ci = 0.95)
-mean11 <- mean11 %>%
-  mutate(Aphid_line = factor(Aphid_line, levels = order.aphids)) %>%
-  arrange(Aphid_line)
-
-mean11$Parasitism_success.mean.norm <- mean11$Parasitism_success.mean - mean10$Parasitism_success.mean
-mean11$Parasitism_success.upper.norm <- mean11$Parasitism_success.upper - mean10$Parasitism_success.mean
-mean11$Parasitism_success.lower.norm <- mean11$Parasitism_success.lower - mean10$Parasitism_success.mean
-data$Parasitism_success_centered <- data$Parasitism_success - mean10$Parasitism_success.mean
-
-if (file.exists(here("R_output", "Parasitism_relative_to_control.pdf"))) {
-  colors <- c("black", "#ff9900", "#ff9900", "#ff9900", "#88ff4d", "#66ccff", "#66ccff", "#aa80ff", "#aa80ff")
-  par(mar = c(10, 5, 1, 1) + .1)
-  stripchart(data$Parasitism_success_centered ~ data$Aphid_line,
-    vertical = TRUE,
-    method = "jitter", jitter = 0.2, add = F, pch = 20, cex = 0.5, col = adjustcolor(colors, alpha.f = 0.4), xlab = "", ylab = "Parasitism success\n (% difference to control)", ylim = c(-0.5, 0.8), las = 2
-  )
-  points(mean11$Parasitism_success.mean.norm ~ mean11$Aphid_line, col = "black", pch = 20, cex = 1)
-  segments(x0 = c(1:10), x1 = c(1:10), y0 = mean11$Parasitism_success.mean.norm, y1 = mean11$Parasitism_success.upper.norm, col = "black")
-  segments(x0 = c(1:10), x1 = c(1:10), y0 = mean11$Parasitism_success.mean.norm, y1 = mean11$Parasitism_success.lower.norm, col = "black")
-  abline(mean11$Parasitism_success.upper.norm[1], 0, col = "red", lty = 2)
-  abline(mean11$Parasitism_success.lower.norm[1], 0, col = "red", lty = 2)
-} else {
-  pdf(height = 4, width = 4, file = here("R_output", "Parasitism_relative_to_control.pdf"))
-  colors <- c("black", "#ff9900", "#ff9900", "#ff9900", "#88ff4d", "#66ccff", "#66ccff", "#aa80ff", "#aa80ff")
-  par(mar = c(5, 5, 1, 1) + .1)
-  stripchart(data$Parasitism_success_centered ~ data$Aphid_line,
-    vertical = TRUE,
-    method = "jitter", jitter = 0.2, add = F, pch = 20, cex = 0.5, col = adjustcolor(colors, alpha.f = 0.4), xlab = "", ylab = "Parasitism success\n (% difference to control)", ylim = c(-0.5, 0.8), las = 2
-  )
-  points(mean11$Parasitism_success.mean.norm ~ mean11$Aphid_line, col = "black", pch = 20, cex = 1)
-  segments(x0 = c(1:10), x1 = c(1:10), y0 = mean11$Parasitism_success.mean.norm, y1 = mean11$Parasitism_success.upper.norm, col = "black")
-  segments(x0 = c(1:10), x1 = c(1:10), y0 = mean11$Parasitism_success.mean.norm, y1 = mean11$Parasitism_success.lower.norm, col = "black")
-  abline(mean11$Parasitism_success.upper.norm[1], 0, col = "red", lty = 2)
-  abline(mean11$Parasitism_success.lower.norm[1], 0, col = "red", lty = 2)
-
-  dev.off()
-}
-```
-
-
-```{r data exploration plot #2 Paraisitism success local vs non-local}
-data_no_control <- subset(data, Hamiltonella_host_species != "none")
-data_no_control$Hamiltonella_host_species <- droplevels(data_no_control)$Hamiltonella_host_species
-data_no_control <- data_no_control %>%
-  mutate(Wasp_host_species = factor(Wasp_host_species, levels = order.origin)) %>%
-  arrange(Wasp_host_species)
-data_matching_origin <- subset(data_no_control, as.factor(data_no_control$Wasp_host_species) == as.factor(data_no_control$Hamiltonella_host_species)) %>%
-  mutate(Wasp_host_species = factor(Wasp_host_species, levels = order.origin)) %>%
-  arrange(Wasp_host_species)
-
-data_unmatching_origin <- subset(data_no_control, as.factor(data_no_control$Wasp_host_species) != as.factor(data_no_control$Hamiltonella_host_species)) %>%
-  mutate(Wasp_host_species = factor(Wasp_host_species, levels = order.origin)) %>%
-  arrange(Wasp_host_species)
-
-mean6 <- group.CI(Parasitism_success ~ Parasitoid_line, data = data_control, ci = 0.95)
-mean6$Wasp_host_species <- rep(c(
-  "Aphis_urticata", "Aphis_urticata", "Aphis_urticata", "Aphis_ruborum", "Aphis_ruborum", "Aphis_ruborum", "Aphis_ruborum", "Aphis_ruborum", "Aphis_ruborum", "Aphis_ruborum", "Aphis_ruborum", "Aphis_ruborum", "Aphis_ruborum", "Aphis_ruborum", "Aphis_ruborum", "Aphis_ruborum", "Aphis_fabae_fabae", "Aphis_fabae_fabae", "Aphis_fabae_fabae", "Aphis_fabae_fabae", "Aphis_fabae_fabae", "Aphis_fabae_fabae", "Aphis_fabae_fabae", "Aphis_fabae_fabae", "Aphis_hederae", "Aphis_hederae", "Aphis_hederae", "Aphis_hederae", "Aphis_hederae", "Aphis_hederae", "Aphis_hederae", "Aphis_hederae", "Aphis_hederae", "Aphis_hederae", "Aphis_hederae"
-), 1)
-mean8 <- group.CI(Parasitism_success ~ Parasitoid_line, data = data_matching_origin, ci = 0.95)
-mean9 <- group.CI(Parasitism_success ~ Parasitoid_line, data = data_unmatching_origin, ci = 0.95)
-
-if (file.exists(here("R_output", "Parasitism_local_vs_nonlocal.pdf"))) {
-  plot(NULL, xlim = c(0:1), ylim = c(0:1), xlab = "Parasitism success\n vs non-local H. defensa", ylab = "Parasitism success\n vs local H. defensa")
-  palette(c("#00a0f0", "#5c0aff", "#53c71a", "#e68a00"))
-  segments(x0 = mean9$Parasitism_success.mean, x1 = mean9$Parasitism_success.mean, y0 = mean8$Parasitism_success.lower, y1 = mean8$Parasitism_success.upper, col = as.factor(mean6$Wasp_host_species))
-  segments(x0 = mean9$Parasitism_success.upper, x1 = mean9$Parasitism_success.lower, y0 = mean8$Parasitism_success.mean, y1 = mean8$Parasitism_success.mean, col = as.factor(mean6$Wasp_host_species))
-  points(mean8$Parasitism_success.mean ~ mean9$Parasitism_success.mean,
-    pch = 20, cex = 1, col = as.factor(mean6$Wasp_host_species)
-  )
-  abline(0, 1, col = "red", lty = 3)
-} else {
-  pdf(height = 4, width = 4, file = here("R_output", "Parasitism_local_vs_nonlocal.pdf"))
-  par(mar = c(5, 5, 1, 1) + .1)
-  plot(NULL, xlim = c(0:1), ylim = c(0:1), xlab = "Parasitism success\n vs non-local H. defensa", ylab = "Parasitism success\n vs local H. defensa")
-  palette(c("#00a0f0", "#5c0aff", "#53c71a", "#e68a00"))
-  segments(x0 = mean9$Parasitism_success.mean, x1 = mean9$Parasitism_success.mean, y0 = mean8$Parasitism_success.lower, y1 = mean8$Parasitism_success.upper, col = as.factor(mean6$Wasp_host_species))
-  segments(x0 = mean9$Parasitism_success.upper, x1 = mean9$Parasitism_success.lower, y0 = mean8$Parasitism_success.mean, y1 = mean8$Parasitism_success.mean, col = as.factor(mean6$Wasp_host_species))
-  points(mean8$Parasitism_success.mean ~ mean9$Parasitism_success.mean,
-    pch = 20, cex = 1, col = as.factor(mean6$Wasp_host_species)
-  )
-  abline(0, 1, col = "red", lty = 3)
-
-  dev.off()
-}
-```
-
-# Some data relabelling
-
-We are going to slightly relabel some variables so that the values are more plot-friendly (no underscores, added italics for species names...). We also reorder levels so that the no-Hamiltonella controls are the first levels in their corresponding factor variables
-
-```{r data-preparation}
-
-data <- data %>%
-  ## create origin columns with no underscore for goood looking plots
-  ## and species names we will be able to display
-  ## in italic using the markdown facilities in ggtext
-  mutate(
-    Origin_para = str_replace_all(Wasp_host_species, "_", " "),
-    Origin_ham = str_replace_all(Hamiltonella_host_species, "_", " ")
-  ) %>%
-  mutate(
-    Origin_para = str_replace_all(Origin_para, "Aphis", "A."),
-    Origin_ham = str_replace_all(Origin_ham, "Aphis", "A.")
-  ) %>%
-  mutate(Origin_para2 = factor(paste("Parasitoid original host: *", 
-                                     Origin_para, "*", sep = ""))) %>%
-  mutate(Origin_para = paste("*", Origin_para, "*", sep = "")) %>%
-  mutate(Origin_ham = paste("*", Origin_ham, "*", sep = "")) %>%
-  mutate(Origin_ham = fct_recode(Origin_ham, none = "*none*")) %>%
-  mutate(Origin_ham2 = factor(paste("*H. defensa* original host: ", 
-                                    Origin_ham, "", sep = ""))) %>%
-  ## we finish by ensuring the no-Ham control is the first level for both
-  ## Aphid_line and host_origin variables, for the model
-  mutate(
-    Aphid_line = fct_relevel(Aphid_line,
-      "NTR-407",
-      after = 0
-    ),
-    Hamiltonella_host_species = fct_relevel(factor(Hamiltonella_host_species),
-      "none",
-      after = 0
-    ),
-    Origin_ham = fct_relevel(factor(Origin_ham),
-      "none",
-      after = 0
-    )
-  )
-```
 
 
 # Models with bayesian approach
 
 ## Priors
 
-Weakely informative priors from McElreath (2020)
+Weakly informative priors inspired from McElreath (2020)
 ```{r prior}
 
 prior <- c(
@@ -467,11 +407,6 @@ prior <- c(
   set_prior("lkj(2)", class = "cor") ## correlations between random effects
   # can loosen that with lkj(1)
 )
-
-#prior_nocors <- c(
-#  set_prior("normal(0,1.5)", class = "b"),
-#  set_prior("normal(0,1)", class = "sd")
-#)
 ```
 
 ## Model 1
@@ -488,15 +423,16 @@ if (file.exists(here("R_output", "mod_binom.Rdata"))) {
   mod_binom <- brm(
     bf(Mummies_amount | trials(Nymphs_corrected) ~
       0 + Wasp_host_species + Wasp_host_species:Hamiltonella_host_species + ## origin in the wild are fixed effects
-      (Aphid_line | Wasp_genotype) + ## hamiltonella lines have a random effect nested by parasitoid genotype
+      (Aphid_line | Wasp_genotype) + ## but more generally, each wasp genotype has its own, random effect response to each Hamiltonella line
       (1 | replicate_fullID), ## random effect of the replicate inside each aphid line (not changing much)
     # (1|Block) #+ ## block effect is not valid since it's confounded with parasitoid line
+    ## (see: data %>% select(Parasitoid_line,Block) %>% distinct() %>% table())
     family = "binomial"
     ),
     data = data,
     chains = 4, iter = 2000, seed = 666,
     prior = prior,
-    backend = "cmdstanr" ## better with "cmdstanr", but "rstan" does the job as well
+    backend = "cmdstanr"
   )
 
   save(list = c("mod_binom"), file = here("R_output", "mod_binom.Rdata"))
@@ -518,7 +454,7 @@ To do that, let's use a beta-binomial model
 
 ## Model 2: beta-binomial
 
-```{r mod_binomial}
+```{r mod_betabinomial}
 if (file.exists(here("R_output", "mod_betabinom.Rdata"))) {
   # this if-else statement is avoid re-fitting a model if there is already one existing in R_output
   # to override, re-run the model and re-save manually by selecting only the relevant code lines (or delete the Rdata object before relaunching this code chunk)
@@ -526,23 +462,22 @@ if (file.exists(here("R_output", "mod_betabinom.Rdata"))) {
 } else {
   mod_betabinom <- brm(
     bf(Mummies_amount | trials(Nymphs_corrected) ~
-      0 + Wasp_host_species + Wasp_host_species:Hamiltonella_host_species + ## origin in the wild are fixed effects
-      (Aphid_line | Wasp_genotype) + ## hamiltonella lines have a random effect nested by parasitoid genotype
-      (1 | replicate_fullID), ## random effect of the replicate inside each aphid line (not changing much)
-    # (1|Block) #+ ## block effect is not valid since it's confounded with parasitoid line
-    nlf(phi~1/invphi), 
-    #easier to set priors on 1/phi than phi
-    #see https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations#story-when-the-generic-prior-fails-the-case-of-the-negative-binomial
-    invphi~1,
+      0 + Wasp_host_species + Wasp_host_species:Hamiltonella_host_species +
+      (Aphid_line | Wasp_genotype) +
+      (1 | replicate_fullID),
+    nlf(phi ~ 1 / invphi),
+    # easier to set priors on 1/phi than phi
+    # see https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations#story-when-the-generic-prior-fails-the-case-of-the-negative-binomial
+    invphi ~ 1,
     family = beta_binomial(link_phi = "identity")
     ),
     data = data,
     chains = 4, iter = 2000, seed = 666,
     prior = c(
       prior,
-      set_prior("normal(0,1)",nlpar="invphi",lb = 0)
+      set_prior("normal(0,1)", nlpar = "invphi", lb = 0) # half-normal prior on 1/phi
     ),
-    backend = "cmdstanr" ## better with "cmdstanr", but "rstan" does the job as well
+    backend = "cmdstanr"
   )
 
   save(list = c("mod_betabinom"), file = here("R_output", "mod_betabinom.Rdata"))
@@ -563,7 +498,7 @@ Ok, that's better
 
 Let's plot data and make comparisons based on the beta-binomial model
 
-Predictions base on fixed effects only:
+We generate predictions based on fixed effects only:
 
 ```{r fits_fix}
 fits <- data %>%
@@ -577,23 +512,7 @@ fits <- data %>%
   ungroup()
 ```
 
-Table of observed parasitism success means of parasitoid lines x aphids lines combinations
 
-```{r lines_means}
-obsmeans <- data %>%
-  group_by(
-    Hamiltonella_host_species,
-    Wasp_host_species,
-    Origin_ham, Origin_para, Origin_para2,
-    Wasp_genotype, Aphid_line, Origin_ham2
-  ) %>%
-  summarise(
-    mean_obs = mean(Mummies_amount / Nymphs_corrected, na.rm = TRUE),
-    sd_obs = sd(Mummies_amount / Nymphs_corrected, na.rm = TRUE),
-    N_obs = sum(Nymphs_corrected)
-  ) %>%
-  ungroup()
-```
 
 Plot
 
@@ -632,12 +551,35 @@ plot_v1 <- ggplot(fits) +
   )
 
 
-if (file.exists(here("R_output", "Parasitism_all_lines_modOLRE.pdf"))) {
-  plot_v1 + scale_color_manual(values = rep(c("black", "#ffc266", "#e68a00", "#995c00", "#53c71a", "#4dc3ff", "#00a0f0", "#9966ff", "#5c0aff"), 4)) +
+if (file.exists(here("R_output", "Parasitism_all_lines_mod_betabinom.pdf"))) {
+  plot_v1 + scale_color_manual(values = rep(
+    c(
+      "black",
+      "#ffc266",
+      "#e68a00",
+      "#995c00",
+      "#53c71a",
+      "#4dc3ff",
+      "#00a0f0",
+      "#9966ff",
+      "#5c0aff"
+    ),
+    4
+  )) +
     theme(legend.position = "none")
 } else {
-  pdf(height = 8, width = 5, file = here("R_output", "Parasitism_all_lines_modOLRE.pdf"))
-  plot_v1 + scale_color_manual(values = c("black", "#ffc266", "#e68a00", "#995c00", "#53c71a", "#4dc3ff", "#00a0f0", "#9966ff", "#5c0aff")) +
+  pdf(height = 8, width = 5, file = here("R_output", "Parasitism_all_lines_mod_betabinom.pdf"))
+  plot_v1 + scale_color_manual(values = c(
+    "black",
+    "#ffc266",
+    "#e68a00",
+    "#995c00",
+    "#53c71a",
+    "#4dc3ff",
+    "#00a0f0",
+    "#9966ff",
+    "#5c0aff"
+  )) +
     theme(legend.position = "none")
   dev.off()
 }
@@ -645,14 +587,22 @@ if (file.exists(here("R_output", "Parasitism_all_lines_modOLRE.pdf"))) {
 
 ```{r plot_v2}
 obsmeans <- obsmeans %>%
-  mutate(Origin_ham = factor(Origin_ham, levels = c("none", "*A. urticata*", "*A. ruborum*", "*A. fabae fabae*", "*A. hederae*"))) %>%
+  mutate(Origin_ham = factor(Origin_ham,
+    levels = c(
+      "none",
+      "*A. urticata*",
+      "*A. ruborum*",
+      "*A. fabae fabae*",
+      "*A. hederae*"
+    )
+  )) %>%
   arrange(Origin_ham)
 
 plot_v2 <- ggplot(fits) +
   geom_jitter(
     data = obsmeans,
     aes(Origin_para,
-      mean_obs,
+      mean_success_obs,
       color = Origin_para
     ),
     height = 0, width = 0.2,
@@ -675,12 +625,23 @@ plot_v2 <- ggplot(fits) +
   )
 
 
-if (file.exists(here("R_output", "Parasitism_by_ham_origin_modOLRE.pdf"))) {
-  plot_v2 + scale_color_manual(values = c("#e68a00", "#53c71a", "#00a0f0", "#5c0aff")) +
+if (
+  file.exists(
+    here("R_output", "Parasitism_by_ham_origin_mod_betabinom.pdf")
+  )
+) {
+  plot_v2 +
+    scale_color_manual(values = c("#e68a00", "#53c71a", "#00a0f0", "#5c0aff")) +
     theme(legend.position = "none")
 } else {
-  pdf(height = 5, width = 4, file = here("R_output", "Parasitism_by_ham_origin_modOLRE.pdf"))
-  plot_v2 + scale_color_manual(values = c("black", "#e68a00", "#53c71a", "#00a0f0", "#5c0aff")) +
+  pdf(
+    height = 5, width = 4,
+    file = here("R_output", "Parasitism_by_ham_origin_mod_betabinom.pdf")
+  )
+  plot_v2 +
+    scale_color_manual(
+      values = c("black", "#e68a00", "#53c71a", "#00a0f0", "#5c0aff")
+    ) +
     theme(legend.position = "none")
   dev.off()
 }
@@ -688,9 +649,12 @@ if (file.exists(here("R_output", "Parasitism_by_ham_origin_modOLRE.pdf"))) {
 
 Re-do fits, but scaled to the parasitism success of each wasp line against the defense-free aphids
 
-```{r fits_fix}
+```{r fits_fix2}
 translate <- data %>%
-  select(Origin_ham, Origin_para, Origin_para2, Hamiltonella_host_species, Wasp_host_species, Origin_ham2) %>%
+  select(
+    Origin_ham, Origin_para, Origin_para2, Hamiltonella_host_species,
+    Wasp_host_species, Origin_ham2
+  ) %>%
   distinct()
 
 fits_scaled <- data %>%
@@ -703,23 +667,32 @@ fits_scaled <- data %>%
   add_linpred_draws(mod_betabinom, re_formula = NA) %>%
   ungroup() %>%
   group_by(Wasp_host_species) %>%
-  compare_levels(.linpred, by = Hamiltonella_host_species, comparison = "control") %>%
+  compare_levels(.linpred,
+    by = Hamiltonella_host_species, comparison = "control"
+  ) %>%
   mutate(Hamiltonella_host_species = str_remove(Hamiltonella_host_species, " - none")) %>%
   left_join(translate) %>%
-  mutate(Origin_para = factor(Origin_para, c("*A. urticata*", "*A. ruborum*", "*A. fabae fabae*", "*A. hederae*"))) %>%
-  mutate(Origin_ham2 = factor(Origin_ham2, c("*H. defensa* original host: *A. hederae*", "*H. defensa* original host: *A. fabae fabae*", "*H. defensa* original host: *A. ruborum*", "*H. defensa* original host: *A. urticata*", "*H. defensa* original host: none"))) %>%
+  mutate(Origin_para = factor(
+    Origin_para,
+    c(
+      "*A. urticata*",
+      "*A. ruborum*",
+      "*A. fabae fabae*",
+      "*A. hederae*"
+    )
+  )) %>%
+  mutate(Origin_ham2 = factor(
+    Origin_ham2,
+    c(
+      "*H. defensa* original host: *A. hederae*",
+      "*H. defensa* original host: *A. fabae fabae*",
+      "*H. defensa* original host: *A. ruborum*",
+      "*H. defensa* original host: *A. urticata*",
+      "*H. defensa* original host: none"
+    )
+  )) %>%
   arrange(Origin_para) %>%
   arrange(Origin_ham2)
-
-# MD: recommends removing because confusing
-#fits_scaled_probs <- fits_scaled %>%
-#  mutate(.linpred = (exp(.linpred) / (1 + exp(.linpred))))
-
-
-obsmeans <- obsmeans %>%
-  mutate(relative_mean_obs = mean_obs - subset(obsmeans$mean_obs, obsmeans$Hamiltonella_host_species == "none")) %>%
-  mutate(Origin_para = factor(Origin_para, c("*A. urticata*", "*A. ruborum*", "*A. fabae fabae*", "*A. hederae*"))) %>%
-  arrange(Origin_para)
 ```
 
 Scaled plot
@@ -733,22 +706,30 @@ plot_scaled <- ggplot(fits_scaled) +
   ) +
   geom_hline(yintercept = 0, lty = 2) +
   scale_x_discrete("*H. defensa* origin") +
-  scale_y_continuous("Relative parasitism success (logit scale)") +
+  scale_y_continuous("Relative parasitism success (vs no *H. defensa*, logit scale)") +
   facet_wrap(~Origin_para2, nrow = 4) +
   theme_bw(base_size = 12) +
   theme(
     # legend.position = "none",
     strip.text = element_markdown(),
     axis.text.x = element_markdown(),
-    axis.title.x = element_markdown()
+    axis.title.x = element_markdown(),
+    axis.title.y = element_markdown()
   )
 
-if (file.exists(here("R_output", "Relative_parasitism_all_lines_modOLRE.pdf"))) {
+if (
+  file.exists(
+    here("R_output", "Relative_parasitism_all_lines_modOLRE.pdf")
+  )
+) {
   plot_scaled +
     scale_fill_manual(values = c("#e68a00", "#53c71a", "#00a0f0", "#5c0aff")) +
     theme(legend.position = "none")
 } else {
-  pdf(height = 4, width = 4, file = here("R_output", "Relative_parasitism_all_lines_modOLRE.pdf"))
+  pdf(
+    height = 4, width = 4,
+    file = here("R_output", "Relative_parasitism_all_lines_modOLRE.pdf")
+  )
   plot_scaled +
     scale_fill_manual(values = c("#e68a00", "#53c71a", "#00a0f0", "#5c0aff")) +
     theme(legend.position = "none")
@@ -764,22 +745,30 @@ plot_scaled2 <- ggplot(subset(fits_scaled, fits_scaled$Hamiltonella_host_species
   ) +
   geom_hline(yintercept = 0, lty = 2) +
   scale_x_discrete("*L. fabarum* original host") +
-  scale_y_continuous("Relative parasitism success (logit scale)") +
+  scale_y_continuous("Relative parasitism success (vs no *H. defensa*, logit scale)") +
   facet_wrap(~Origin_ham2, nrow = 4) +
   theme_bw(base_size = 12) +
   theme(
     # legend.position = "none",
     strip.text = element_markdown(),
     axis.text.x = element_markdown(),
-    axis.title.x = element_markdown()
+    axis.title.x = element_markdown(),
+    axis.title.y = element_markdown()
   )
 
-if (file.exists(here("R_output", "Relative_parasitism_all_lines_by_ham_modOLRE.pdf"))) {
+if (
+  file.exists(
+    here("R_output", "Relative_parasitism_all_lines_by_ham_modOLRE.pdf")
+  )
+) {
   plot_scaled2 +
     scale_fill_manual(values = c("#e68a00", "#53c71a", "#00a0f0", "#5c0aff")) +
     theme(legend.position = "none")
 } else {
-  pdf(height = 6, width = 4, file = here("R_output", "Relative_parasitism_all_lines_by_ham_modOLRE.pdf"))
+  pdf(
+    height = 6, width = 4,
+    file = here("R_output", "Relative_parasitism_all_lines_by_ham_modOLRE.pdf")
+  )
   plot_scaled2 +
     scale_fill_manual(values = c("#e68a00", "#53c71a", "#00a0f0", "#5c0aff")) +
     theme(legend.position = "none")
@@ -787,42 +776,51 @@ if (file.exists(here("R_output", "Relative_parasitism_all_lines_by_ham_modOLRE.p
 }
 ```
 
-```{r plot_scaled_probs}
+Similar to the above, a way to explore whether there is local adaptation is to compare, for each parasitoid origin, the predicted performance on aphids with "non-local" *Hamiltonella* (or no *Hamiltonella*) to the predicted performance on aphids with "local" *Hamiltonella*:
 
-# MD: recommends removing because confusing
-###################################################################################################################
-############################### work in progress ##################################################################
-###################################################################################################################
-#
-#plot_scaled_probs <- ggplot(fits_scaled_probs) +
-#  geom_jitter(
-#    data = subset(obsmeans, obsmeans$Hamiltonella_host_species != "none"),
-#    aes(Origin_para,
-#      relative_mean_obs,
-#      color = Origin_para
-#    ),
-#    height = 0, width = 0.2,
-#    size = 2, alpha = 0.7
-#  ) +
-#  stat_eye(aes(Origin_para, .value, fill = Origin_para),
-#    normalize = "xy",
-#    .width = c(0.001, 0.95), slab_alpha = 0.5
-#  ) +
-#  geom_hline(yintercept = 0, lty = 2) +
-#  scale_x_discrete("*Hamiltonella* source") +
-#  scale_y_continuous("Relative parasitism success") +
-#  facet_wrap(~Origin_ham2, nrow = 4) +
-#  theme_bw(base_size = 12) +
-#  theme(
-#    # legend.position = "none",
-#    strip.text = element_markdown(),
-#    axis.text.x = element_markdown(),
-#    axis.title.x = element_markdown()
-#  )
-#plot_scaled_probs +
-#  scale_fill_manual(values = c("#e68a00", "#53c71a", "#00a0f0", "#5c0aff")) +
-#  theme(legend.position = "none")
+```{r}
+fits_logit <- data %>%
+  select(
+    Hamiltonella_host_species, Wasp_host_species,
+    Origin_ham, Origin_para, Origin_para2, Origin_ham2
+  ) %>%
+  distinct() %>%
+  mutate(Nymphs_corrected = 1) %>%
+  add_linpred_draws(mod_betabinom, re_formula = NA) %>%
+  ungroup()
+
+fits_logit %>%
+  mutate(Ham_type = case_when(
+    Hamiltonella_host_species == "none" ~ "none",
+    as.character(Hamiltonella_host_species) == as.character(Wasp_host_species) ~ "local",
+    TRUE ~ "non-local"
+  )) %>%
+  group_by(.draw, Wasp_host_species, Origin_para, Origin_para2, Ham_type) %>%
+  summarise(.linpred = mean(.linpred)) %>%
+  ungroup() %>%
+  group_by(Wasp_host_species, Origin_para, Origin_para2) %>%
+  compare_levels(.linpred, by = Ham_type, comparison = "control") %>%
+  mutate(Ham_type = str_remove(Ham_type, " - local")) %>%
+  ggplot() +
+  stat_eye(aes(Ham_type, .linpred),
+    normalize = "xy",
+    .width = c(0.001, 0.95), slab_alpha = 0.5
+  ) +
+  scale_x_discrete("*Hamiltonella defensa* ?") +
+  scale_y_continuous("Relative parasitism success (compared to same-origin *H. defensa*, logit scale)") +
+  geom_hline(yintercept = 0, lty = 2) +
+  facet_wrap(~Origin_para2, nrow = 4) +
+  theme_bw(base_size = 12) +
+  theme(
+    # legend.position = "none",
+    strip.text = element_markdown(),
+    axis.text.x = element_markdown(),
+    axis.title.x = element_markdown(),
+    axis.title.y = element_markdown()
+  )
 ```
+
+
 
 ## Pairwise comparisons
 
@@ -837,7 +835,13 @@ fits %>%
   compare_levels(.epred, by = Wasp_host_species) %>%
   mean_hdi(.epred) %>% ## here with mean, but it also works with mean_hdi, median_qi, mean_qi
   mutate(.epred = round(.epred, digits = 2)) %>%
-  mutate(.epred = cell_spec(.epred, color = ifelse(.epred > 0 & .lower > 0, "green", ifelse(.epred < 0 & .upper < 0, "red", "black")))) %>% ## color postive and negative values that do not overlap the zero
+  mutate(.epred = cell_spec(.epred,
+    color = ifelse(.epred > 0 & .lower > 0, "green",
+      ifelse(.epred < 0 & .upper < 0,
+        "red", "black"
+      )
+    )
+  )) %>% ## color postive and negative values that do not overlap the zero
   kbl(booktabs = T, linesep = "", escape = FALSE) %>%
   kable_paper("striped", full_width = F) %>%
   scroll_box(width = "100%", height = "300px")
@@ -851,7 +855,13 @@ fits %>%
   compare_levels(.epred, by = Hamiltonella_host_species) %>%
   mean_hdi(.epred) %>% ## here with mean, but it also works with mean_hdi, median_qi, mean_qi
   mutate(.epred = round(.epred, digits = 2)) %>%
-  mutate(.epred = cell_spec(.epred, color = ifelse(.epred > 0 & .lower > 0, "green", ifelse(.epred < 0 & .upper < 0, "red", "black")))) %>%
+  mutate(.epred = cell_spec(.epred,
+    color = ifelse(.epred > 0 & .lower > 0, "green",
+      ifelse(.epred < 0 & .upper < 0,
+        "red", "black"
+      )
+    )
+  )) %>%
   kbl(booktabs = T, linesep = "", escape = FALSE) %>%
   kable_paper("striped", full_width = F) %>%
   scroll_box(width = "100%", height = "300px")
@@ -861,11 +871,20 @@ fits %>%
 ## All pairwise differences between all combinations of hamiltonella origin x parasitoid origin
 fits %>%
   mutate(.iteration = .draw) %>%
-  mutate(combo = interaction(Wasp_host_species, Hamiltonella_host_species)) %>%
-  compare_levels(.epred, by = combo) %>%
+  mutate(combo_wasp.ham = interaction(
+    Wasp_host_species,
+    Hamiltonella_host_species
+  )) %>%
+  compare_levels(.epred, by = combo_wasp.ham) %>%
   mean_hdi(.epred) %>% ## here with mean, but it also works with mean_hdi, median_qi, mean_qi
   mutate(.epred = round(.epred, digits = 2)) %>%
-  mutate(.epred = cell_spec(.epred, color = ifelse(.epred > 0 & .lower > 0, "green", ifelse(.epred < 0 & .upper < 0, "red", "black")))) %>%
+  mutate(.epred = cell_spec(.epred,
+    color = ifelse(.epred > 0 & .lower > 0, "green",
+      ifelse(.epred < 0 & .upper < 0,
+        "red", "black"
+      )
+    )
+  )) %>%
   kbl(booktabs = T, linesep = "", escape = FALSE) %>%
   kable_paper("striped", full_width = F) %>%
   scroll_box(width = "100%", height = "300px")
@@ -873,7 +892,7 @@ fits %>%
 
 ## Pairwise comparisons, but grouping by other variables than fixed effects (random effects)
 
-To determine whether the beta-binomial model predicts well the expected line level parasitism success, we can red-do the prediction including aphid and parasitoid random effects:
+To determine whether the beta-binomial model predicts well the expected line level parasitism success, we can re-do the prediction including aphid and parasitoid random effects:
 
 ```{r fits_RE}
 
@@ -896,12 +915,17 @@ And then do an observed vs predicted plot:
 ```{r}
 left_join(obsmeans, fitsRE) %>%
   ggplot() +
-  stat_pointinterval(aes(mean_obs, .epred),
+  stat_pointinterval(aes(mean_success_obs, .epred),
     .width = c(0.001, 0.95)
   ) +
-  scale_x_continuous("observed mean proportion") +
-  scale_y_continuous("predicted mean proportion") +
-  geom_abline(intercept = 0, slope = 1)
+  scale_x_continuous("observed mean proportion",
+    breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)
+  ) +
+  scale_y_continuous("predicted mean proportion",
+    breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)
+  ) +
+  geom_abline(intercept = 0, slope = 1, lty = 2) +
+  theme(aspect.ratio = 1)
 ```
 
 
@@ -911,7 +935,7 @@ left_join(obsmeans, fitsRE) %>%
 ########################### I don't remember what I wanted to do with this one ##############################
 #############################################################################################################
 #
-#fitsRE %>%
+# fitsRE %>%
 #  mutate(.iteration = .draw) %>%
 #  group_by(Aphid_line) %>%
 #  compare_levels(.epred, by = Wasp_genotype) %>%
@@ -923,14 +947,14 @@ left_join(obsmeans, fitsRE) %>%
 #  scroll_box(width = "100%", height = "300px")
 ```
 
-# variance partitioning: a quick look
+# variance partitioning: a quick and very dirty look (TO CHECK TO CONFIRM)
 
 OK so this is a quick look on how much genotype pair-level variance is due to genotype origin vs. anything else about the genotype. It's on the *logit scale* (for how to do on the observed % scale, see: doi:10.1534/genetics.115.186536)(for how to partition the totality of the variance in the model, including within-genotype variance, see e.g. doi:10.1111/j.2041-210x.2012.00261.x and follow up publications by the same)
 
 we first need to estimate the variance explained by fixed effects. Simple: we make predictions based on fixed effects only, then estimate their variance. Important: we make these predictions using every point of the original data (no "use distinct() to keep only one unique value" stuff)
 
 ```{r fits_fix_logit}
-fits_logit <- data %>%
+fits_logit_full <- data %>%
   select(
     Hamiltonella_host_species, Wasp_host_species,
     Origin_ham, Origin_para2
@@ -940,7 +964,7 @@ fits_logit <- data %>%
   ungroup()
 
 
-var_fix <- fits_logit %>%
+var_fix <- fits_logit_full %>%
   group_by(.draw) %>%
   summarise(VF = var(.linpred))
 ```
@@ -948,18 +972,20 @@ var_fix <- fits_logit %>%
 Now we do the same with the variance explained by line-level random effects. If there were only random intercepts, it would be as simple as extracting the relevant variance parameter (the SDs you see in the summary). But we have random slopes (the wasp genotype-specific effects of each Hamiltonella). So the easier way (we can check later if is strictly right), is to simply do the same as above, but including these random effects in the predictions:
 
 ```{r fits_linelevel_logit}
-fits_logit2 <- data %>%
+fits_logit2_full <- data %>%
   select(
     Hamiltonella_host_species, Wasp_host_species,
     Origin_ham, Origin_para2,
     Aphid_line, Wasp_genotype
   ) %>%
   mutate(Nymphs_corrected = 1) %>%
-  add_linpred_draws(mod_betabinom, re_formula = ~ (Aphid_line | Wasp_genotype)) %>%
+  add_linpred_draws(mod_betabinom,
+    re_formula = ~ (Aphid_line | Wasp_genotype)
+  ) %>%
   ungroup()
 
 
-var_partition <- fits_logit2 %>%
+var_partition <- fits_logit2_full %>%
   group_by(.draw) %>%
   summarise(Vline = var(.linpred)) %>%
   left_join(var_fix)
@@ -971,6 +997,8 @@ that's it! we can plot it
 
 ggplot(var_partition) +
   stat_halfeye(aes(VF / Vline), .width = c(0.001, 0.95)) +
-  scale_x_continuous("proportion of line-level variation explained by line origin hosts (logit scale)")
+  labs(
+    x = "proportion of line-level variation explained by line origin hosts (logit scale)",
+    y = ""
+  )
 ```
-
