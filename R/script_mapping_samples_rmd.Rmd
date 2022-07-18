@@ -96,7 +96,7 @@ mapPointsA <- mapPointsA +
       label = sample_id_to_draw, colour = aphid_species
     ),
     segment.colour = "black",
-    size = 3, max.overlaps = Inf, nudge_x = 0.02, nudge_y = 0.005,
+    size = 3, max.overlaps = Inf, nudge_x = 0.02, nudge_y = 0.005, box.padding = 0.2,
     min.segment.length = 0, xlim = c(bounding_box["left"], NA)
   ) +
   labs(x = "longitude", y = "latitude") +
@@ -106,11 +106,16 @@ mapPointsA <- mapPointsA +
   ) +
   geom_richtext(
     data = data.frame(),
-    aes(label = "*H. defensa*", x = Inf, y = Inf),
+    aes(label = "Aphid samples", x = Inf, y = Inf),
     hjust = 1, vjust = 1, label.size = NA, label.r = unit(0, "lines")
   ) +
   guides(colour = "none") +
-  theme(legend.text = element_markdown())
+   theme(
+    legend.text = element_markdown(),
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank()
+  )
+
 
 mapPointsA
 
@@ -130,7 +135,7 @@ mapPointsP <- mapPointsP +
       colour = aphid_species,
       shape = niche
     ),
-    size = 3, alpha = 0.6
+    size = 3, alpha = 0.8
   ) +
   geom_label_repel(
     data = subset(
@@ -138,7 +143,7 @@ mapPointsP <- mapPointsP +
       data_parasitoids$niche == "generalist"
     ),
     aes(x = longitude, y = latitude, label = genotype),
-    size = 3, max.overlaps = Inf, nudge_x = 0.02, nudge_y = 0.005, force_pull = 10,
+    size = 3, max.overlaps = Inf, nudge_x = 0.02, nudge_y = 0.005, box.padding = 0.2, force_pull =	5,
     min.segment.length = 0, xlim = c(bounding_box["left"], NA)
   ) +
   labs(x = "longitude", y = "latitude") +
@@ -146,18 +151,15 @@ mapPointsP <- mapPointsP +
     name = "Host species",
     values = c("#00a0f0", "#5c0aff", "#53c71a", "#e68a00")
   ) +
-  scale_shape_discrete("Range of hosts (Parasitoids)") +
+  scale_shape_discrete("Range of hosts (parasitoids)") +
   geom_richtext(
     data = data.frame(),
-    aes(label = "Parasitoids", x = Inf, y = Inf),
+    aes(label = "Parasitoid samples", x = Inf, y = Inf),
     hjust = 1, vjust = 1, label.size = NA, label.r = unit(0, "lines")
   ) +
   # annotation_scale() +
   theme(
     legend.text = element_markdown(),
-    axis.text.y = element_blank(),
-    # axis.ticks.y = element_blank(),
-    axis.title.y = element_blank()
   )
 
 mapPointsP
@@ -169,12 +171,12 @@ dev.off()
 
 
 ```{r}
-
-# version with side-by-side panels
-(mapPointsA | mapPointsP) +
-  plot_layout(guides = "collect")
-
-# version with stacked panels
+# stacked panels
 (mapPointsA / mapPointsP) +
   plot_layout(guides = "collect")
+
+pdf(height = 7, width = 7, file = here("R_output", "stacked_maps.pdf"))
+(mapPointsA / mapPointsP) +
+  plot_layout(guides = "collect")
+dev.off()
 ```
