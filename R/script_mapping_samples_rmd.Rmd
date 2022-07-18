@@ -106,7 +106,7 @@ mapPointsA <- mapPointsA +
   ) +
   geom_richtext(
     data = data.frame(),
-    aes(label = "Aphid samples", x = Inf, y = Inf),
+    aes(label = "*Hamiltonella defensa*", x = Inf, y = Inf),
     hjust = 1, vjust = 1, label.size = NA, label.r = unit(0, "lines")
   ) +
   guides(colour = "none") +
@@ -154,7 +154,7 @@ mapPointsP <- mapPointsP +
   scale_shape_discrete("Range of hosts (parasitoids)") +
   geom_richtext(
     data = data.frame(),
-    aes(label = "Parasitoid samples", x = Inf, y = Inf),
+    aes(label = "*Lysiphlebus fabarum*", x = Inf, y = Inf),
     hjust = 1, vjust = 1, label.size = NA, label.r = unit(0, "lines")
   ) +
   # annotation_scale() +
