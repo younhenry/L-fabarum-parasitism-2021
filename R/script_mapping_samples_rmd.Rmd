@@ -112,8 +112,7 @@ mapPointsA <- ggmap(mymap, darken = c(0.2, "white")) +
       label = sample_id_to_draw, colour = aphid_species
     ),
     segment.colour = "black",
-    size = 3, max.overlaps = Inf, nudge_x = 0.02, nudge_y = 0.005,
-    box.padding = 0.2,
+    size = 3, max.overlaps = Inf, nudge_x = 0.02, nudge_y = 0.005, box.padding = 0.2,
     min.segment.length = 0, xlim = c(bounding_box["left"], NA)
   ) +
   labs(x = "longitude", y = "latitude") +
@@ -127,7 +126,7 @@ mapPointsA <- ggmap(mymap, darken = c(0.2, "white")) +
     hjust = 1, vjust = 1, label.size = NA, label.r = unit(0, "lines")
   ) +
   guides(colour = "none") +
-  theme(
+   theme(
     legend.text = element_markdown(),
     axis.text.x = element_blank(),
     axis.title.x = element_blank()
@@ -189,6 +188,7 @@ dev.off()
 
 Finally the combined map for publication, using the `patchwork` package:
 
+
 ```{r combined-maps}
 
 # version with stacked panels
@@ -197,6 +197,6 @@ pdf(height = 7, width = 7, file = here("R_output", "stacked_maps.pdf"))
 
 (mapPointsA / mapPointsP) +
   plot_layout(guides = "collect")
-
+  
 dev.off()
 ```
