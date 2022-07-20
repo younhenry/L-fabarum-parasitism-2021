@@ -23,7 +23,7 @@ knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE
 
 ```{r load-packages}
 # [R v4.2.1]
-library(grid)      # v4.2.1
+library(grid) # v4.2.1
 library(tidyverse) # CRAN v1.3.1
 library(ggmap) # CRAN v3.0.0
 library(osmdata) # CRAN v0.1.10
@@ -38,7 +38,7 @@ library(here) # CRAN v1.0.1
 
 # Overview
 
-We start by loading the data
+We start by loading the data `data_aphids` and `data_parasitoids`. The former contains info about the *Hamiltonella* samples and the aphids on which they were found, the latter about the wasp samples:
 
 ```{r load-data}
 data_aphids <- read.table(
@@ -64,6 +64,25 @@ data_parasitoids <- read.table(
 
 head(data_parasitoids)
 ```
+
+Both datasets contain the following columns:
+
+- `sample_id`: a sample ID that will become/match the *Hamiltonella*/parasitoid strain ID in the experimental dataset
+- `plant_code` and `plant_species`: on what plant was the aphid containing the *Hamiltonella*/wasp found?
+- `aphid_species`: what aphid species was that? Matches `Hamiltonella_host_species` and `Wasp_host_species` in the experimental dataset
+- `latitude` and `longitude`: where was it found
+- `site`: name of the site
+
+The dataset on *Hamiltonella* samples `data_aphids` also has the following columns:
+
+- `transfected`: whether or not the line was successfully transfected to lab aphids and used in experiments;
+- `sample_id_to_draw`: (created at import) `sample_id` but with the ID deleted (set to "") if the line was not transfected (used to draw the labels on the map below)
+
+The dataset on wasp samples `data_parasitoids` has the following specific columns:
+
+- `genotype`: a genotype ID
+- `niche`: "generalist" if wasps with this genotype was found in multiple aphid species, "specialist" otherwise
+
 
 # Mapping
 
@@ -167,7 +186,7 @@ mapPointsP <- ggmap(mymap, darken = c(0.2, "white")) +
     name = "Host species",
     values = colors
   ) +
-  scale_shape_discrete("Range of hosts (parasitoids)") +
+  scale_shape_discrete("Host range (*L. fabarum*)") +
   geom_richtext(
     data = data.frame(),
     aes(label = "*Lysiphlebus fabarum*", x = Inf, y = Inf),
@@ -178,6 +197,7 @@ mapPointsP <- ggmap(mymap, darken = c(0.2, "white")) +
     shape = guide_legend(order = 2)
   ) +
   theme(
+    legend.title = element_markdown(),
     legend.text = element_markdown()
   )
 
