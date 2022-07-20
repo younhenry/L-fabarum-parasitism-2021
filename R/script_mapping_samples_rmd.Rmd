@@ -23,6 +23,7 @@ knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE
 
 ```{r load-packages}
 # [R v4.2.1]
+library(grid)      # v4.2.1
 library(tidyverse) # CRAN v1.3.1
 library(ggmap) # CRAN v3.0.0
 library(osmdata) # CRAN v0.1.10
@@ -66,7 +67,7 @@ head(data_parasitoids)
 
 # Mapping
 
-Then we do some general preparation: defining a bounding, box, the colours for the legend, loading the map background:
+Then we do some general preparation: defining a bounding box, the colours for the legend, loading the map background:
 
 ```{r prepare-maps}
 bounding_box <- c(
@@ -112,7 +113,8 @@ mapPointsA <- ggmap(mymap, darken = c(0.2, "white")) +
       label = sample_id_to_draw, colour = aphid_species
     ),
     segment.colour = "black",
-    size = 3, max.overlaps = Inf, nudge_x = 0.02, nudge_y = 0.005, box.padding = 0.2,
+    size = 3, max.overlaps = Inf, nudge_x = 0.02, nudge_y = 0.005,
+    box.padding = 0.2,
     min.segment.length = 0, xlim = c(bounding_box["left"], NA)
   ) +
   labs(x = "longitude", y = "latitude") +
@@ -126,10 +128,8 @@ mapPointsA <- ggmap(mymap, darken = c(0.2, "white")) +
     hjust = 1, vjust = 1, label.size = NA, label.r = unit(0, "lines")
   ) +
   guides(colour = "none") +
-   theme(
-    legend.text = element_markdown(),
-    axis.text.x = element_blank(),
-    axis.title.x = element_blank()
+  theme(
+    legend.text = element_markdown()
   )
 
 mapPointsA
@@ -173,8 +173,10 @@ mapPointsP <- ggmap(mymap, darken = c(0.2, "white")) +
     aes(label = "*Lysiphlebus fabarum*", x = Inf, y = Inf),
     hjust = 1, vjust = 1, label.size = NA, label.r = unit(0, "lines")
   ) +
-  guides(colour = guide_legend(order = 1), 
-         shape = guide_legend(order = 2)) +
+  guides(
+    colour = guide_legend(order = 1),
+    shape = guide_legend(order = 2)
+  ) +
   theme(
     legend.text = element_markdown()
   )
@@ -193,10 +195,29 @@ Finally the combined map for publication, using the `patchwork` package:
 
 # version with stacked panels
 
+## we removed the axes titles that are needed on the separate plots
+## but redundant on a stacked plot
+
+ylab <- "latitude"
+
+mPA <- mapPointsA + theme(
+  axis.text.x = element_blank(),
+  axis.title.x = element_blank()
+)
+
+mPP <- mapPointsP
+
+mPA$labels$y <- ""
+mPP$labels$y <- ""
+
+## then we can stack the maps
+
 pdf(height = 7, width = 7, file = here("R_output", "stacked_maps.pdf"))
 
-(mapPointsA / mapPointsP) +
+(mPA / mPP) +
   plot_layout(guides = "collect")
-  
+
+grid::grid.draw(grid::textGrob(ylab, x = 0.02, rot = 90))
+
 dev.off()
 ```
