@@ -20,28 +20,27 @@ knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE
 # Packages
 
 ```{r packages-loading}
-# [R v4.2.1]
+                    # [R v4.2.1]
 
-# library(Rmisc)
-
-library(tidyverse) # CRAN v1.3.1
+library(tidyverse)  # CRAN v1.3.1
 
 # there is a known but (as of July 2022) not yet corrected weird dbplyr-related error if brms is loaded *before* the tidyverse
 # no issue at all if loaded after
-library(cmdstanr) # [github::stan-dev/cmdstanr] v0.5.2
-library(brms) # CRAN v2.17.0
+library(cmdstanr)   # [github::stan-dev/cmdstanr] v0.5.2
+library(brms)       # CRAN v2.17.0
 
-library(bayesplot) # CRAN v1.9.0
-library(tidybayes) # CRAN v3.0.2
+library(bayesplot)  # CRAN v1.9.0
+library(tidybayes)  # CRAN v3.0.2
 
-library(patchwork) # CRAN v1.1.1
-library(ggtext) # CRAN v0.1.1
+library(patchwork)  # CRAN v1.1.1
+library(ggtext)     # CRAN v0.1.1
 
 library(kableExtra) # CRAN v1.3.4
-library(viridis) # CRAN v0.6.2
-# library(boot)
+library(viridis)    # CRAN v0.6.2
 
-library(here) # CRAN v1.0.1
+library(ggh4x)
+
+library(here)       # CRAN v1.0.1
 
 options(mc.cores = 4) ## reduce/increase depending on cores available
 ```
@@ -89,7 +88,7 @@ This dataset contains some metadata-like info about the parasitoid lines used in
 
 ## Prepping the data
 
-We had to remove one entire aphid line from the loaded raw data, as we realized with sequencing that this line was not the one we expected but was identical to another one (TR 619).
+We had to remove one entire aphid line from the loaded raw data, as we realized with sequencing that this line was not the one we expected but was identical to another one (TR-0619).
 We also remove 4 rows (out of >1800) scored `NA` due to experimental error (e.g. missing parasitoid).
 Then we create a full ID for the aphid lines replicates
 
@@ -114,20 +113,6 @@ data <- data %>%
     levels = order.origin
   ))
 
-order.wasps <- data %>%
-  select(Wasp_host_species, Parasitoid_line) %>%
-  distinct() %>%
-  arrange(Wasp_host_species, Parasitoid_line) %>%
-  pull(Parasitoid_line)
-
-
-order.aphids <- data %>%
-  select(Hamiltonella_host_species, Aphid_line) %>%
-  distinct() %>%
-  group_by(Hamiltonella_host_species, Aphid_line) %>%
-  pull(Aphid_line)
-
-
 order.genotypes <- as.factor(c(
   12, 11, 3, 15, 18, 19, 16, 17, 14, 13, 6, 8, 7,
   1, 9, 2, 10, 5, 4
@@ -139,20 +124,19 @@ data <- data %>%
     Hamiltonella_host_species = factor(Hamiltonella_host_species,
       levels = c("none", order.origin)
     ),
-    Parasitoid_line = factor(Parasitoid_line, levels = order.wasps),
-    Aphid_line = factor(Aphid_line, levels = order.aphids)
-  ) %>%
-  arrange(Parasitoid_line, Aphid_line, Hamiltonella_host_species)
+    Parasitoid_line = factor(Parasitoid_line),
+    Aphid_line = factor(Aphid_line)
+  )
 ```
 
-# Some data relabelling
+## Some data relabelling
 
 We are going to slightly relabel some variables so that the values are more plot-friendly (no underscores, added italics for species names...). We also reorder levels so that the no-Hamiltonella controls are the first levels in their corresponding factor variables
 
 ```{r data-preparation}
 
 data <- data %>%
-  #                 # create origin columns with no underscore for goood looking plots
+  #                 # create origin columns with no underscore for good looking plots
   ## and species names we will be able to display
   ## in italic using the markdown facilities in ggtext
   mutate(
@@ -163,17 +147,9 @@ data <- data %>%
     Origin_para = str_replace_all(Origin_para, "Aphis", "A."),
     Origin_ham = str_replace_all(Origin_ham, "Aphis", "A.")
   ) %>%
-  mutate(Origin_para2 = factor(paste("Parasitoid original host: *",
-    Origin_para, "*",
-    sep = ""
-  ))) %>%
-  mutate(Origin_para = paste("*", Origin_para, "*", sep = "")) %>%
-  mutate(Origin_ham = paste("*", Origin_ham, "*", sep = "")) %>%
-  mutate(Origin_ham = fct_recode(Origin_ham, none = "*none*")) %>%
-  mutate(Origin_ham2 = factor(paste("*H. defensa* original host: ",
-    Origin_ham, "",
-    sep = ""
-  ))) %>%
+  mutate(Origin_para = paste("*", Origin_para, "*", sep = ""),
+         Origin_ham = paste("*", Origin_ham, "*", sep = "")) %>%
+  mutate(Origin_ham = fct_recode(Origin_ham, `no *H. defensa*` = "*none*")) %>%
   ## we finish by ensuring the no-Ham control is the first level for both
   ## Aphid_line and host_origin variables, for the model
   mutate(
@@ -186,10 +162,21 @@ data <- data %>%
       after = 0
     ),
     Origin_ham = fct_relevel(factor(Origin_ham),
-      "none",
-      after = 0
+      "no *H. defensa*","*A. urticata*","*A. ruborum*","*A. fabae fabae*","*A. hederae*"
+    ),
+    Origin_para = fct_relevel(factor(Origin_para),
+      "*A. urticata*","*A. ruborum*","*A. fabae fabae*","*A. hederae*"
     )
-  )
+  ) %>%
+  mutate(Origin_para2 = interaction("Parasitoid original host: ",
+    Origin_para,
+    sep = ""
+  )) %>%
+  mutate(Origin_ham2 = interaction("*H. defensa* original host: ",
+    Origin_ham,
+    sep = "")
+  ) %>% 
+  mutate(Origin_ham2 = fct_recode(Origin_ham2, `no *H. defensa*` = "*H. defensa* original host: no *H. defensa*"))
 ```
 
 
@@ -219,12 +206,26 @@ obsmeans <- data %>%
 ```
 
 
+```{r color_code}
+colors_wasp <- c(Aphis_urticata="#ff9900", 
+                 Aphis_ruborum="#88ff4d", 
+                 Aphis_fabae_fabae="#66ccff", 
+                 Aphis_hederae="#aa80ff")
+
+colors_wasp2 <- c(`*A. urticata*`="#ff9900", 
+                 `*A. ruborum*`="#88ff4d", 
+                 `*A. fabae fabae*`="#66ccff", 
+                 `*A. hederae*`="#aa80ff")
+
+colors_aphid <- c(none="black",
+                  Aphis_urticata="#ff9900", 
+                 Aphis_ruborum="#88ff4d", 
+                 Aphis_fabae_fabae="#66ccff", 
+                 Aphis_hederae="#aa80ff")
+```
+
+
 ```{r overlook3}
-## bubble plot
-
-colors <- c("#66ccff", "#aa80ff", "#88ff4d", "#ff9900")
-
-
 ggSize <- 0.25
 bubbles <- ggplot(data = NULL, aes(Parasitoid_line, Aphid_line)) +
   geom_point(
@@ -239,13 +240,12 @@ bubbles <- ggplot(data = NULL, aes(Parasitoid_line, Aphid_line)) +
   ) +
   scale_shape_identity() +
   scale_size_identity() + ## do not plot zero frequency
-  scale_colour_manual(values = colors) + ## define custom colors for protected and unprotected
-  scale_x_discrete(limits = levels(obsmeans$Parasitoid_line)) + ## reorder axes according to levels of factor
-  scale_y_discrete(labels = levels(obsmeans$Aphid_line)) +
+  scale_colour_manual(values = colors_wasp) + ## define custom colors for protected and unprotected
   labs(title = NULL, x = "Parasitoid line", y = "Aphid line") +
   theme(legend.position = "none") +
-  ## geom_hline(yintercept=1.5,lwd=ggSize)+
   theme(
+    strip.text.y = element_markdown(angle=0),
+    strip.text.x = element_markdown(),
     panel.background = element_blank(),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
@@ -258,7 +258,7 @@ bubbles <- ggplot(data = NULL, aes(Parasitoid_line, Aphid_line)) +
     axis.line = element_line(size = ggSize, colour = "black")
   )
 
-bubbles
+bubbles + facet_grid(rows = vars(fct_rev(Origin_ham)), cols=vars(Origin_para),scales = "free",space="free")
 
 if (file.exists(here("R_output", "Plot_bubbles.pdf"))) {
 
@@ -309,7 +309,6 @@ obsmeans2 <- obsmeans %>%
   arrange(Wasp_genotype) %>%
   arrange(niche)
 
-colors2 <- c("#ff9900", "#88ff4d", "#66ccff", "#aa80ff")
 
 
 ggSize <- 0.25
@@ -324,34 +323,14 @@ bubbles_genotype <- ggplot(data = NULL, aes(Parasitoid_line, Aphid_line)) +
     aes(label = round(mean_success_obs * 100, 0)),
     size = 3.5
   ) +
-  geom_text(
-    data = obsmeans2,
-    aes(label = Wasp_genotype, x = Parasitoid_line, y = 9.8),
-    size = 3.5
-  ) +
   scale_shape_identity() +
   scale_size_identity() + ## do not plot zero frequency
-  scale_colour_manual(values = colors2) + ## define custom colors for protected and unprotected
-  scale_x_discrete(
-    limits = c(
-      levels(obsmeans2$Parasitoid_line)[1:4], "",
-      levels(obsmeans2$Parasitoid_line)[5:7], "",
-      levels(obsmeans2$Parasitoid_line)[8:13], "", "",
-      levels(obsmeans2$Parasitoid_line)[14:35]
-    ),
-    labels = c(
-      levels(obsmeans2$Parasitoid_line)[1:4], "",
-      levels(obsmeans2$Parasitoid_line)[5:7], "",
-      levels(obsmeans2$Parasitoid_line)[8:13], "", "",
-      levels(obsmeans2$Parasitoid_line)[14:35]
-    )
-  ) +
-  scale_y_discrete(labels = levels(obsmeans2$Aphid_line), expand = c(0, 1)) +
+  scale_colour_manual(values = colors_wasp) + ## define custom colors for protected and unprotected
   labs(title = NULL, x = "Parasitoid line", y = "Aphid line") +
   theme(legend.position = "none") +
   coord_cartesian(clip = "off") +
   ## geom_hline(yintercept=1.5,lwd=ggSize)+
-  theme(
+  theme(strip.text.y = element_markdown(angle=0),
     panel.background = element_blank(),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
@@ -368,7 +347,11 @@ bubbles_genotype <- ggplot(data = NULL, aes(Parasitoid_line, Aphid_line)) +
     axis.line = element_line(size = ggSize, colour = "black")
   )
 
-bubbles_genotype
+bubbles_genotype+ facet_nested(fct_rev(Origin_ham)~ niche + Wasp_genotype,scales = "free",space="free",
+                                nest_line = element_line(),
+                               strip=strip_nested(by_layer_x = TRUE,
+                                                  background_x = elem_list_rect(fill = c("white", "grey85")),
+                                                  ))
 
 if (file.exists(here("R_output", "Plot_bubbles_genotype.pdf"))) {
 
@@ -517,6 +500,18 @@ fits <- data %>%
 Plot
 
 ```{r plot_v1}
+colors_aphid_lines=c(
+  `NTR-407`="black",
+  `TR-0016`=  "#ffc266",
+  `TR-0042`= "#4dc3ff",
+  `TR-0076`= "#00a0f0",
+  `TR-0103`=  "#e68a00",
+  `TR-0131`= "#995c00",
+  `TR-0214`= "#9966ff",
+  `TR-0244`= "#5c0aff",
+  `TR-0619`= "#53c71a"
+)
+
 data <- data %>%
   arrange(Aphid_line) %>%
   arrange(Origin_ham) %>%
@@ -531,7 +526,7 @@ plot_v1 <- ggplot(fits) +
     aes(Origin_para,
       Mummies_amount / Nymphs_corrected,
       group = paste(Aphid_line, Parasitoid_line),
-      color = Aphid_line
+      color = Origin_para
     ),
     alpha = 0.3
   ) +
@@ -541,10 +536,11 @@ plot_v1 <- ggplot(fits) +
   ) +
   scale_x_discrete("*L. fabarum* original host") +
   scale_y_continuous("Proportion of nymphs parasitized") +
-  facet_wrap(~Origin_ham2, nrow = 5) +
+  scale_color_manual(values = colors_wasp2) +
+  facet_wrap(~fct_relevel(Origin_ham2,rev), nrow = 5) +
   theme_bw(base_size = 12) +
   theme(
-    # legend.position = "none",
+    legend.position = "none",
     strip.text = element_markdown(),
     axis.text.x = element_markdown(),
     axis.title.x = element_markdown()
@@ -552,52 +548,15 @@ plot_v1 <- ggplot(fits) +
 
 
 if (file.exists(here("R_output", "Parasitism_all_lines_mod_betabinom.pdf"))) {
-  plot_v1 + scale_color_manual(values = rep(
-    c(
-      "black",
-      "#ffc266",
-      "#e68a00",
-      "#995c00",
-      "#53c71a",
-      "#4dc3ff",
-      "#00a0f0",
-      "#9966ff",
-      "#5c0aff"
-    ),
-    4
-  )) +
-    theme(legend.position = "none")
+  plot_v1 
 } else {
   pdf(height = 8, width = 5, file = here("R_output", "Parasitism_all_lines_mod_betabinom.pdf"))
-  plot_v1 + scale_color_manual(values = c(
-    "black",
-    "#ffc266",
-    "#e68a00",
-    "#995c00",
-    "#53c71a",
-    "#4dc3ff",
-    "#00a0f0",
-    "#9966ff",
-    "#5c0aff"
-  )) +
-    theme(legend.position = "none")
+  plot_v1
   dev.off()
 }
 ```
 
 ```{r plot_v2}
-obsmeans <- obsmeans %>%
-  mutate(Origin_ham = factor(Origin_ham,
-    levels = c(
-      "none",
-      "*A. urticata*",
-      "*A. ruborum*",
-      "*A. fabae fabae*",
-      "*A. hederae*"
-    )
-  )) %>%
-  arrange(Origin_ham)
-
 plot_v2 <- ggplot(fits) +
   geom_jitter(
     data = obsmeans,
@@ -614,11 +573,12 @@ plot_v2 <- ggplot(fits) +
   ) +
   scale_x_discrete("*L. fabarum* original host") +
   scale_y_continuous("Proportion of nymphs parasitized") +
-  facet_wrap(~Origin_ham2, nrow = 5) +
+  scale_color_manual(values = colors_wasp2) +
+  facet_wrap(~fct_relevel(Origin_ham2,rev), nrow = 5) +
   theme_bw(base_size = 12) +
   theme(panel.grid.minor = element_blank()) +
   theme(
-    # legend.position = "none",
+    legend.position = "none",
     strip.text = element_markdown(),
     axis.text.x = element_markdown(),
     axis.title.x = element_markdown()
@@ -630,19 +590,13 @@ if (
     here("R_output", "Parasitism_by_ham_origin_mod_betabinom.pdf")
   )
 ) {
-  plot_v2 +
-    scale_color_manual(values = c("#e68a00", "#53c71a", "#00a0f0", "#5c0aff")) +
-    theme(legend.position = "none")
+  plot_v2 
 } else {
   pdf(
     height = 5, width = 4,
     file = here("R_output", "Parasitism_by_ham_origin_mod_betabinom.pdf")
   )
-  plot_v2 +
-    scale_color_manual(
-      values = c("black", "#e68a00", "#53c71a", "#00a0f0", "#5c0aff")
-    ) +
-    theme(legend.position = "none")
+  plot_v2
   dev.off()
 }
 ```
@@ -671,26 +625,7 @@ fits_scaled <- data %>%
     by = Hamiltonella_host_species, comparison = "control"
   ) %>%
   mutate(Hamiltonella_host_species = str_remove(Hamiltonella_host_species, " - none")) %>%
-  left_join(translate) %>%
-  mutate(Origin_para = factor(
-    Origin_para,
-    c(
-      "*A. urticata*",
-      "*A. ruborum*",
-      "*A. fabae fabae*",
-      "*A. hederae*"
-    )
-  )) %>%
-  mutate(Origin_ham2 = factor(
-    Origin_ham2,
-    c(
-      "*H. defensa* original host: *A. hederae*",
-      "*H. defensa* original host: *A. fabae fabae*",
-      "*H. defensa* original host: *A. ruborum*",
-      "*H. defensa* original host: *A. urticata*",
-      "*H. defensa* original host: none"
-    )
-  )) %>%
+  left_join(translate) %>% 
   arrange(Origin_para) %>%
   arrange(Origin_ham2)
 ```
@@ -707,10 +642,11 @@ plot_scaled <- ggplot(fits_scaled) +
   geom_hline(yintercept = 0, lty = 2) +
   scale_x_discrete("*H. defensa* origin") +
   scale_y_continuous("Relative parasitism success (vs no *H. defensa*, logit scale)") +
-  facet_wrap(~Origin_para2, nrow = 4) +
+  scale_fill_manual(values = colors_wasp2) +
+  facet_wrap(~fct_relevel(Origin_para2,rev), nrow = 4) +
   theme_bw(base_size = 12) +
   theme(
-    # legend.position = "none",
+    legend.position = "none",
     strip.text = element_markdown(),
     axis.text.x = element_markdown(),
     axis.title.x = element_markdown(),
@@ -719,20 +655,16 @@ plot_scaled <- ggplot(fits_scaled) +
 
 if (
   file.exists(
-    here("R_output", "Relative_parasitism_all_lines_modOLRE.pdf")
+    here("R_output", "Relative_parasitism_all_lines_mod_betabinom.pdf")
   )
 ) {
-  plot_scaled +
-    scale_fill_manual(values = c("#e68a00", "#53c71a", "#00a0f0", "#5c0aff")) +
-    theme(legend.position = "none")
+  plot_scaled
 } else {
   pdf(
     height = 4, width = 4,
-    file = here("R_output", "Relative_parasitism_all_lines_modOLRE.pdf")
+    file = here("R_output", "Relative_parasitism_all_lines_mod_betabinom.pdf")
   )
-  plot_scaled +
-    scale_fill_manual(values = c("#e68a00", "#53c71a", "#00a0f0", "#5c0aff")) +
-    theme(legend.position = "none")
+  plot_scaled
   dev.off()
 }
 ```
@@ -746,10 +678,11 @@ plot_scaled2 <- ggplot(subset(fits_scaled, fits_scaled$Hamiltonella_host_species
   geom_hline(yintercept = 0, lty = 2) +
   scale_x_discrete("*L. fabarum* original host") +
   scale_y_continuous("Relative parasitism success (vs no *H. defensa*, logit scale)") +
-  facet_wrap(~Origin_ham2, nrow = 4) +
+  scale_fill_manual(values = colors_wasp2) +
+  facet_wrap(~fct_relevel(Origin_ham2,rev), nrow = 4) +
   theme_bw(base_size = 12) +
   theme(
-    # legend.position = "none",
+    legend.position = "none",
     strip.text = element_markdown(),
     axis.text.x = element_markdown(),
     axis.title.x = element_markdown(),
@@ -758,20 +691,16 @@ plot_scaled2 <- ggplot(subset(fits_scaled, fits_scaled$Hamiltonella_host_species
 
 if (
   file.exists(
-    here("R_output", "Relative_parasitism_all_lines_by_ham_modOLRE.pdf")
+    here("R_output", "Relative_parasitism_all_lines_by_ham_mod_betabinom.pdf")
   )
 ) {
-  plot_scaled2 +
-    scale_fill_manual(values = c("#e68a00", "#53c71a", "#00a0f0", "#5c0aff")) +
-    theme(legend.position = "none")
+  plot_scaled2
 } else {
   pdf(
     height = 6, width = 4,
-    file = here("R_output", "Relative_parasitism_all_lines_by_ham_modOLRE.pdf")
+    file = here("R_output", "Relative_parasitism_all_lines_by_ham_mod_betabinom.pdf")
   )
-  plot_scaled2 +
-    scale_fill_manual(values = c("#e68a00", "#53c71a", "#00a0f0", "#5c0aff")) +
-    theme(legend.position = "none")
+  plot_scaled2
   dev.off()
 }
 ```
@@ -791,9 +720,9 @@ fits_logit <- data %>%
 
 fits_logit %>%
   mutate(Ham_type = case_when(
-    Hamiltonella_host_species == "none" ~ "none",
+    Hamiltonella_host_species == "none" ~ "no *H. defensa*",
     as.character(Hamiltonella_host_species) == as.character(Wasp_host_species) ~ "local",
-    TRUE ~ "non-local"
+    TRUE ~ "non-local *H. defensa*"
   )) %>%
   group_by(.draw, Wasp_host_species, Origin_para, Origin_para2, Ham_type) %>%
   summarise(.linpred = mean(.linpred)) %>%
@@ -802,17 +731,68 @@ fits_logit %>%
   compare_levels(.linpred, by = Ham_type, comparison = "control") %>%
   mutate(Ham_type = str_remove(Ham_type, " - local")) %>%
   ggplot() +
-  stat_eye(aes(Ham_type, .linpred),
+  stat_eye(aes(Ham_type, .linpred,fill=Origin_para),
     normalize = "xy",
     .width = c(0.001, 0.95), slab_alpha = 0.5
   ) +
+  scale_fill_manual(values = colors_wasp2) +
   scale_x_discrete("*Hamiltonella defensa* ?") +
   scale_y_continuous("Relative parasitism success (compared to same-origin *H. defensa*, logit scale)") +
   geom_hline(yintercept = 0, lty = 2) +
-  facet_wrap(~Origin_para2, nrow = 4) +
+  facet_wrap(~fct_relevel(Origin_para2,rev), nrow = 4) +
   theme_bw(base_size = 12) +
   theme(
-    # legend.position = "none",
+    legend.position = "none",
+    strip.text = element_markdown(),
+    axis.text.x = element_markdown(),
+    axis.title.x = element_markdown(),
+    axis.title.y = element_markdown()
+  )
+```
+
+we can do the same, but without averaging the non-local:
+
+```{r}
+
+fits_logit2 <- data %>%
+  select(
+    Hamiltonella_host_species, Wasp_host_species,
+    Origin_ham, Origin_para2, Origin_ham2
+  ) %>%
+  distinct() %>%
+  mutate(Nymphs_corrected = 1) %>%
+  add_linpred_draws(mod_betabinom, re_formula = NA) %>%
+  ungroup() %>%
+  group_by(Wasp_host_species) %>%
+  nest() %>% 
+  mutate(local_level=map2(.x=Wasp_host_species,.y=data,
+                  .f=~.y %>% compare_levels(.linpred, 
+                                            by = Hamiltonella_host_species,
+                                            comparison=emmeans_comparison("trt.vs.ctrl",ref=as.character(.x))(unique(.y$Hamiltonella_host_species))
+                                             ))) %>% 
+  select(Wasp_host_species,local_level) %>% 
+  unnest(local_level) %>% 
+  ungroup() %>% 
+  mutate(Hamiltonella_host_species = str_split_fixed(Hamiltonella_host_species,pattern= " - ", n=2)[,1])
+  
+
+origin_info = data %>% select(Wasp_host_species,Hamiltonella_host_species,Origin_ham,Origin_para,Origin_para2) %>% distinct()
+
+fits_logit2 %>% 
+  left_join(origin_info) %>% 
+  ggplot() +
+  stat_eye(aes(Origin_ham, .linpred, fill=Origin_para),
+           normalize = "xy",
+           .width = c(0.001, 0.95), slab_alpha = 0.5
+  ) +
+  geom_hline(yintercept = 0, lty = 2) +
+  scale_x_discrete("*H. defensa* origin") +
+  scale_y_continuous("Relative parasitism success (vs \"local\" *H. defensa*, logit scale)") +
+  scale_fill_manual(values = colors_wasp2) +
+  facet_wrap(~fct_relevel(Origin_para2,rev), nrow = 4) +
+  theme_bw(base_size = 12) +
+  theme(
+    legend.position = "none",
     strip.text = element_markdown(),
     axis.text.x = element_markdown(),
     axis.title.x = element_markdown(),
@@ -890,7 +870,7 @@ fits %>%
   scroll_box(width = "100%", height = "300px")
 ```
 
-## Pairwise comparisons, but grouping by other variables than fixed effects (random effects)
+## Predicted vs observed comparison
 
 To determine whether the beta-binomial model predicts well the expected line level parasitism success, we can re-do the prediction including aphid and parasitoid random effects:
 
@@ -918,10 +898,10 @@ left_join(obsmeans, fitsRE) %>%
   stat_pointinterval(aes(mean_success_obs, .epred),
     .width = c(0.001, 0.95)
   ) +
-  scale_x_continuous("observed mean proportion",
+  scale_x_continuous("observed mean proportion of nymphs parasitized",
     breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)
   ) +
-  scale_y_continuous("predicted mean proportion",
+  scale_y_continuous("predicted mean proportion of nymphs parasitized",
     breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1)
   ) +
   geom_abline(intercept = 0, slope = 1, lty = 2) +
