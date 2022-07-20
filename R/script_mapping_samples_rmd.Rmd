@@ -167,7 +167,7 @@ mapPointsP <- ggmap(mymap, darken = c(0.2, "white")) +
     name = "Host species",
     values = colors
   ) +
-  scale_shape_discrete("Range of hosts (parasitoids)") +
+  scale_shape_discrete("Host range (*L. fabarum*)") +
   geom_richtext(
     data = data.frame(),
     aes(label = "*Lysiphlebus fabarum*", x = Inf, y = Inf),
@@ -178,6 +178,7 @@ mapPointsP <- ggmap(mymap, darken = c(0.2, "white")) +
     shape = guide_legend(order = 2)
   ) +
   theme(
+    legend.title = element_markdown(),
     legend.text = element_markdown()
   )
 
