@@ -21,7 +21,7 @@ knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE
 
 # Packages
 
-```{r packages-loading}
+```{r load-packages}
 # [R v4.2.1]
 library(tidyverse) # CRAN v1.3.1
 library(ggmap) # CRAN v3.0.0
@@ -37,10 +37,11 @@ library(here) # CRAN v1.0.1
 
 # Overview
 
-Loading the data
+We start by loading the data
 
-```{r data-load}
-data_aphids <- read.table(here("data", "aphid_samples_2020.txt"),
+```{r load-data}
+data_aphids <- read.table(
+  here("data", "aphid_samples_2020.txt"),
   h = T, dec = "."
 ) %>%
   mutate(sample_id = str_replace(sample_id, "Y20-", "TR-")) %>%
@@ -51,12 +52,10 @@ data_aphids <- read.table(here("data", "aphid_samples_2020.txt"),
     TRUE ~ ""
   ))
 
-## huh? "Y20-0076" should be on the map I think, and isn't? check that
-# sort(unique(data_aphids$sample_id_to_draw))
-# sort(unique(data_aphids$sample_id))
-
 head(data_aphids)
-data_parasitoids <- read.table(here("data", "parasitoid_samples_2020.txt"),
+
+data_parasitoids <- read.table(
+  here("data", "parasitoid_samples_2020.txt"),
   h = T, dec = "."
 ) %>%
   mutate(aphid_species = str_replace_all(aphid_species, "_", " ")) %>%
@@ -65,9 +64,11 @@ data_parasitoids <- read.table(here("data", "parasitoid_samples_2020.txt"),
 head(data_parasitoids)
 ```
 
-Take a look at the datasets
+# Mapping
 
-```{r overlook aphid samples}
+Then we do some general preparation: defining a bounding, box, the colours for the legend, loading the map background:
+
+```{r prepare-maps}
 bounding_box <- c(
   left = 8.145,
   bottom = 47.295,
@@ -75,15 +76,30 @@ bounding_box <- c(
   top = 47.575
 )
 
+colors0 <- c(
+  "*Aphis urticata*" = "#ff9900", # same colors as in analysis code, but too "flashy" on maps. Adjust?
+  "*Aphis ruborum*" = "#88ff4d",
+  "*Aphis fabae fabae*" = "#66ccff",
+  "*Aphis hederae*" = "#aa80ff"
+)
+
+colors <- c(
+  "*Aphis urticata*" = "#e68a00",
+  "*Aphis ruborum*" = "#53c71a",
+  "*Aphis fabae fabae*" = "#00a0f0",
+  "*Aphis hederae*" = "#5c0aff"
+)
 
 mymap <- get_stamenmap(
   bbox = bounding_box,
   maptype = "terrain", zoom = 11
 )
+```
 
-mapPointsA <- ggmap(mymap, darken = c(0.2, "white"))
+Now we can build the map. First the aphid/*Hamiltonella* map:
 
-mapPointsA <- mapPointsA +
+```{r map-aphids}
+mapPointsA <- ggmap(mymap, darken = c(0.2, "white")) +
   geom_point(
     data = data_aphids,
     aes(x = longitude, y = latitude, colour = aphid_species),
@@ -102,7 +118,7 @@ mapPointsA <- mapPointsA +
   labs(x = "longitude", y = "latitude") +
   scale_color_manual(
     name = "Host species",
-    values = c("#00a0f0", "#5c0aff", "#53c71a", "#e68a00")
+    values = colors
   ) +
   geom_richtext(
     data = data.frame(),
@@ -116,7 +132,6 @@ mapPointsA <- mapPointsA +
     axis.title.x = element_blank()
   )
 
-
 mapPointsA
 
 pdf(height = 4, width = 5, file = here("R_output", "Aphid_map.pdf"))
@@ -124,10 +139,10 @@ mapPointsA
 dev.off()
 ```
 
-```{r overlook parasitoid samples}
-mapPointsP <- ggmap(mymap, darken = c(0.2, "white"))
+Then the parasitoid map:
 
-mapPointsP <- mapPointsP +
+```{r map-parasitoids}
+mapPointsP <- ggmap(mymap, darken = c(0.2, "white")) +
   geom_point(
     data = data_parasitoids,
     aes(
@@ -143,13 +158,14 @@ mapPointsP <- mapPointsP +
       data_parasitoids$niche == "generalist"
     ),
     aes(x = longitude, y = latitude, label = genotype),
-    size = 3, max.overlaps = Inf, nudge_x = 0.02, nudge_y = 0.005, box.padding = 0.2, force_pull =	5,
+    size = 3, max.overlaps = Inf, nudge_x = 0.02, nudge_y = 0.005,
+    box.padding = 0.2, force_pull = 5,
     min.segment.length = 0, xlim = c(bounding_box["left"], NA)
   ) +
   labs(x = "longitude", y = "latitude") +
   scale_color_manual(
     name = "Host species",
-    values = c("#00a0f0", "#5c0aff", "#53c71a", "#e68a00")
+    values = colors
   ) +
   scale_shape_discrete("Range of hosts (parasitoids)") +
   geom_richtext(
@@ -157,9 +173,10 @@ mapPointsP <- mapPointsP +
     aes(label = "*Lysiphlebus fabarum*", x = Inf, y = Inf),
     hjust = 1, vjust = 1, label.size = NA, label.r = unit(0, "lines")
   ) +
-  # annotation_scale() +
+  guides(colour = guide_legend(order = 1), 
+         shape = guide_legend(order = 2)) +
   theme(
-    legend.text = element_markdown(),
+    legend.text = element_markdown()
   )
 
 mapPointsP
@@ -169,14 +186,17 @@ mapPointsP
 dev.off()
 ```
 
+Finally the combined map for publication, using the `patchwork` package:
 
-```{r}
-# stacked panels
-(mapPointsA / mapPointsP) +
-  plot_layout(guides = "collect")
+
+```{r combined-maps}
+
+# version with stacked panels
 
 pdf(height = 7, width = 7, file = here("R_output", "stacked_maps.pdf"))
+
 (mapPointsA / mapPointsP) +
   plot_layout(guides = "collect")
+  
 dev.off()
 ```
