@@ -36,7 +36,6 @@ library(patchwork) # CRAN v1.1.1
 library(ggtext) # CRAN v0.1.1
 
 library(kableExtra) # CRAN v1.3.4
-library(viridis) # CRAN v0.6.2
 
 library(ggh4x) # [github::teunbrand/ggh4x] v0.2.1 ## used for facet_nested in second bubbleplot
 
@@ -200,7 +199,7 @@ To have a rough look at how parasitism success is distributed among line combina
 
 We start by making a summary object that contains the mean parasitism success per strain combo (*Hamiltonella* x parasitoid):
 
-```{r lines_means}
+```{r lines-means}
 obsmeans <- data %>%
   group_by(
     Hamiltonella_host_species,
@@ -217,7 +216,7 @@ obsmeans <- data %>%
 ```
 
 
-```{r color_code}
+```{r color-code}
 colors_wasp <- c(
   Aphis_urticata = "#ff9900",
   Aphis_ruborum = "#88ff4d",
@@ -242,7 +241,7 @@ colors_aphid <- c(
 ```
 
 
-```{r overlook_bubbleplot}
+```{r overlook-bubbleplot}
 ggSize <- 0.25
 bubbles <- ggplot(data = NULL, aes(Parasitoid_line, Aphid_line)) +
   geom_point(
@@ -428,7 +427,7 @@ prior <- c(
 Let's start with a simple binomial model:
 
 
-```{r mod_binomial}
+```{r mod-binomial}
 if (file.exists(here("R_output", "mod_binom.Rdata"))) {
   # this if-else statement is avoid re-fitting a model if there is already one existing in R_output
   # to override, re-run the model and re-save manually by selecting only the relevant code lines (or delete the Rdata object before relaunching this code chunk)
@@ -455,7 +454,7 @@ if (file.exists(here("R_output", "mod_binom.Rdata"))) {
 
 Let's check the fit of the model by comparing predicted vs observed distribution:
 
-```{r pp_check}
+```{r pp-check}
 pp_check(mod_binom)
 pp_check(mod_binom, "stat_2d")
 ```
@@ -468,7 +467,7 @@ To do that, let's use a beta-binomial model
 
 ## Model 2: beta-binomial
 
-```{r mod_betabinomial}
+```{r mod-betabinomial}
 if (file.exists(here("R_output", "mod_betabinom.Rdata"))) {
   # this if-else statement is avoid re-fitting a model if there is already one existing in R_output
   # to override, re-run the model and re-save manually by selecting only the relevant code lines (or delete the Rdata object before relaunching this code chunk)
@@ -502,12 +501,46 @@ if (file.exists(here("R_output", "mod_betabinom.Rdata"))) {
 ```
 
 
-```{r pp_check_bis}
+```{r pp-check-bis}
 pp_check(mod_betabinom)
 pp_check(mod_betabinom, "stat_2d")
 ```
 
-OK, that's better. Now that we have a model, let's move to the next steps.
+That's better!
+
+### A note
+
+One may have noted that we used `Wasp_genotype` (which reflects the outcome of line genotyping) as a random effect, rather than `Parasitoid_line` (some genotypes have been sampled in multiple places, and so are in multiple lines). This is a choice made to be congruent with the `Aphid_line` side of the random effect, as all *Hamiltonella* lines are genetically distinct. Nonetheless, one may want to re-run the models above using `Parasitoid_line`. We don't present it in detail here, for clarity, but it is as simple as replacing `(Aphid_line | Wasp_genotype)` by `(Aphid_line | Parasitoid_line)` in the models above. Doing that and then running all the code downstream of the models (while changing model and variable names as needed) shows that this leads to qualitatively identical outcomes.
+
+### Model comparison using LOO/Kfold
+
+We can also directly compare the models using LOO
+
+```{r loo}
+loo_binom <- loo(mod_binom)
+loo_betabinom <- loo(mod_betabinom)
+
+loo_compare(loo_binom, loo_betabinom)
+```
+
+If you look at the details of the `loo_binom` object you will see that the Pareto k diagnostics flag some observations as "bad" or "very bad" which may lead to inaccurate estimate of the LOO metrics. Ideally, we should try to correct that using moment matching methods (but they are not well implemented using cmdstanr), or by using K-fold cross-validation instead of Leave One Out. To do K-fold CV one needs to refit each model K times (default 10) which may take a lot of time (around one hour each), and in the present case, model comparison using LOO and K-fold gives the same message. So the code for K-fold below is silenced out to save time, only run it if you really want/need to check these K-fold values.
+
+```{r kfold}
+#if (file.exists(here("R_output", "Kfold_models.Rdata"))) {
+#  load(here("R_output", "Kfold_models.Rdata"))
+#} else {
+#kfold_binom <- kfold(mod_binom)  # default k fold is 10
+#kfold_betabinom <- kfold(mod_betabinom)
+# save(
+#    list = c("kfold_binom","kfold_betabinom"),
+#    file = here("R_output", "Kfold_models.Rdata")
+#  )
+#}
+#
+#loo_compare(kfold_binom, kfold_betabinom)
+```
+
+Now that we have a preferred model, we can move to the next steps.
 
 # Plots and postprocessing
 
@@ -517,7 +550,7 @@ Let's plot data and make comparisons based on the beta-binomial model
 
 We generate predictions based on fixed effects only:
 
-```{r fits_fix}
+```{r fits-fix}
 fits <- data %>%
   select(
     Hamiltonella_host_species, Wasp_host_species,
@@ -858,7 +891,7 @@ fits_logit2 %>%
 
 More generally, we may want to extract tables with modeled pairwise differences between any treatments/variables for the Results
 
-```{r pairwise_diff}
+```{r pairwise-diff}
 ## Differences between parasitoid origins (host), by hamiltonella origin (original host)
 fits %>%
   mutate(.iteration = .draw) %>%
@@ -923,7 +956,7 @@ fits %>%
 
 ## Predicted vs observed comparison
 
-To determine whether the beta-binomial model predicts well the expected line level parasitism success, we can re-do the predictions, this time including aphid and parasitoid random effects:
+To determine whether the beta-binomial model predicts well the expected line/genotype level parasitism success, we can re-do the predictions, this time including the relevant aphid and parasitoid random effects:
 
 ```{r fits-with-RE}
 
