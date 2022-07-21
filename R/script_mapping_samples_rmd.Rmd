@@ -24,15 +24,20 @@ knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE
 ```{r load-packages}
 # [R v4.2.1]
 library(grid) # v4.2.1
+
 library(tidyverse) # CRAN v1.3.1
+
 library(ggmap) # CRAN v3.0.0
 library(osmdata) # CRAN v0.1.10
+
 library(ggtext) # CRAN v0.1.1
 library(ggrepel) # CRAN v0.9.1
+
 library(patchwork) # CRAN v1.1.1
+
 library(here) # CRAN v1.0.1
 ## tool for workspace location management
-## automatically detects the workspace after loading the package if Rstudio was opened using the script file (or with new R project)
+## automatically detects the workspace after loading the package if Rstudio was opened using the script file (or through a R project)
 ## load last to avoid conflicts
 ```
 
@@ -209,7 +214,6 @@ dev.off()
 ```
 
 Finally the combined map for publication, using the `patchwork` package:
-
 
 ```{r combined-maps}
 
