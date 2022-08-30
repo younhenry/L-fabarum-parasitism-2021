@@ -225,18 +225,18 @@ colors_wasp <- c(
 )
 
 colors_wasp2 <- c(
-  `*A. urticata*` = "#ff9900",
-  `*A. ruborum*` = "#88ff4d",
-  `*A. fabae fabae*` = "#66ccff",
-  `*A. hederae*` = "#aa80ff"
+  `*A. urticata*` = "#e68a00",
+  `*A. ruborum*` = "#53c71a",
+  `*A. fabae fabae*` = "#00a0f0",
+  `*A. hederae*` = "#5c0aff"
 )
 
 colors_aphid <- c(
   none = "black",
-  Aphis_urticata = "#ff9900",
-  Aphis_ruborum = "#88ff4d",
-  Aphis_fabae_fabae = "#66ccff",
-  Aphis_hederae = "#aa80ff"
+  Aphis_urticata = "#e68a00",
+  Aphis_ruborum = "#53c71a",
+  Aphis_fabae_fabae = "#00a0f0",
+  Aphis_hederae = "#5c0aff"
 )
 ```
 
@@ -274,17 +274,19 @@ bubbles <- ggplot(data = NULL, aes(Parasitoid_line, Aphid_line)) +
     axis.line = element_line(size = ggSize, colour = "black")
   )
 
-bubbles +
+bubbles <- bubbles +
   facet_grid(
     rows = vars(fct_rev(Origin_ham)),
     cols = vars(Origin_para),
     scales = "free", space = "free"
   )
 
+bubbles
+
 if (file.exists(here("R_output", "Plot_bubbles.pdf"))) {
 
 } else {
-  pdf(height = 4, width = 10, file = here("R_output", "Plot_bubbles.pdf"))
+  pdf(height = 6, width = 12, file = here("R_output", "Plot_bubbles.pdf"))
   bubbles
   dev.off()
 }
@@ -370,7 +372,7 @@ bubbles_genotype <- ggplot(data = NULL, aes(Parasitoid_line, Aphid_line)) +
     axis.line = element_line(size = ggSize, colour = "black")
   )
 
-bubbles_genotype +
+bubbles_genotype <- bubbles_genotype +
   facet_nested(fct_rev(Origin_ham) ~ niche + Wasp_genotype,
     scales = "free", space = "free",
     nest_line = element_line(),
@@ -382,11 +384,13 @@ bubbles_genotype +
     )
   )
 
+bubbles_genotype
+
 if (file.exists(here("R_output", "Plot_bubbles_genotype.pdf"))) {
 
 } else {
   pdf(
-    height = 4, width = 11,
+    height = 6, width = 12,
     file = here("R_output", "Plot_bubbles_genotype.pdf")
   )
   bubbles_genotype
@@ -514,7 +518,7 @@ One may have noted that we used `Wasp_genotype` (which reflects the outcome of l
 
 ### Model comparison using LOO/Kfold
 
-We can also directly compare the models using LOO
+We can also directly compare the models using LOO. You may need to install the "extraDistr" package to run this function (not to load it)
 
 ```{r loo}
 loo_binom <- loo(mod_binom)
@@ -665,7 +669,7 @@ if (
   plot_v2
 } else {
   pdf(
-    height = 5, width = 4,
+    height = 6, width = 5,
     file = here("R_output", "Parasitism_by_ham_origin_mod_betabinom.pdf")
   )
   plot_v2
@@ -737,7 +741,7 @@ if (
   plot_scaled
 } else {
   pdf(
-    height = 4, width = 4,
+    height = 6, width = 5,
     file = here("R_output", "Relative_parasitism_all_lines_mod_betabinom.pdf")
   )
   plot_scaled
@@ -773,7 +777,7 @@ if (
   plot_scaled2
 } else {
   pdf(
-    height = 6, width = 4,
+    height = 6, width = 5,
     file = here("R_output", "Relative_parasitism_all_lines_by_ham_mod_betabinom.pdf")
   )
   plot_scaled2
@@ -912,7 +916,7 @@ fits %>%
 
 
 
-## Differences between hamiltonella origins, par parasitoid origin
+## Differences between hamiltonella origins, by parasitoid origin
 fits %>%
   mutate(.iteration = .draw) %>%
   group_by(Wasp_host_species) %>%
@@ -1028,7 +1032,7 @@ vc_nested <- tibble(
 )
 
 # quick checks that the components are correct
-# in particular, check that the coefficients are in the same order in both table (brms has some internal remaing rules for things like underscores...)
+# in particular, check that the coefficients are in the same order in both table (brms has some internal rules for things like underscores...)
 # vc_nested$design_matrix[[1]]
 # vc_nested$varcorr[[1]]
 
@@ -1063,7 +1067,6 @@ varcomps <- var_line %>%
 that's it! we can plot it
 
 ```{r plot-varpart}
-
 ggplot(varcomps) +
   stat_halfeye(aes(VF / (VF + Vline)), .width = c(0.001, 0.95)) +
   scale_x_continuous(limits = c(0, 1)) +
