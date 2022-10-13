@@ -956,6 +956,29 @@ fits %>%
   kbl(booktabs = T, linesep = "", escape = FALSE) %>%
   kable_paper("striped", full_width = F) %>%
   scroll_box(width = "100%", height = "300px")
+
+
+```
+```{r relative pairwise-diff}
+
+## Differences between parasitoid origins (host), by hamiltonella origin (original host), relative to hamiltonella-free
+fits_scaled %>%
+  mutate(.iteration = .draw) %>%
+  group_by(Hamiltonella_host_species) %>%
+  compare_levels(.linpred, by = Wasp_host_species) %>%
+  mean_hdi(.linpred) %>% ## here with mean, but it also works with mean_hdi, median_qi, mean_qi
+  mutate(.linpred = round(.linpred, digits = 2)) %>%
+  mutate(.linpred = cell_spec(.linpred,
+    color = ifelse(.linpred > 0 & .lower > 0, "green",
+      ifelse(.linpred < 0 & .upper < 0,
+        "red", "black"
+      )
+    )
+  )) %>% ## color postive and negative values that do not overlap the zero
+  kbl(booktabs = T, linesep = "", escape = FALSE) %>%
+  kable_paper("striped", full_width = F) %>%
+  scroll_box(width = "100%", height = "300px")
+
 ```
 
 ## Predicted vs observed comparison
