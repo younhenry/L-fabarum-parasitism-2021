@@ -54,7 +54,7 @@ raw_data <- read.table(here("data", "data_parasitism_R.txt"), h = T, dec = ".")
 head(raw_data)
 ```
 
-this dataset contains all the information about the experiments themselves. One row = one trial where one parasitoid was left with aphids to see how many it could parasite:
+this dataset contains all the information about the experiments themselves. One row = one trial where one parasitoid was left with aphids to see how many it could parasitize:
 
 
 - `Aphid_line`: ID of the experimental aphid line (to be more accurate, ID codes actually refer to the *Hamiltonella* lines transferred to "standardized" lab aphids). The NTR-407 line is a control with no *Hamiltonella*;
@@ -67,7 +67,7 @@ this dataset contains all the information about the experiments themselves. One 
 
 - `Block`: temporal experimental unit/block. Unused in analysis, as it is fully confounded with `Parasitoid_line` (each line was done at once, lines were spread in time), and so partly with `Wasp_genotype` (but not with `Wasp_host_species` and `Hamiltonella_host_species`, the actual key variables of interest);
 
-- `Latitude_wasp` and `Longitude_wasp`: where does the wasp `Parasitoid_line` comes from? (see also info in `script_mapping_samples_rmd.Rmd` file)
+- `Latitude_wasp` and `Longitude_wasp`: where does the wasp `Parasitoid_line` come from? (see also info in `script_mapping_samples_rmd.Rmd` file)
 
 - `Nymphs_corrected`: the total number of aphid nymphs effectively available to the focal parasitoid in a given assay;
 - `Dead_wasp`: whether or not the introduced wasp was dead at the end of the experiment (not used);
@@ -404,12 +404,12 @@ if (file.exists(here("R_output", "Plot_bubbles_genotype.pdf"))) {
 
 ## Priors
 
-We are going to use generic weakly informative priors inspired from McElreath (2020):
+We are going to use generic weakly informative priors inspired by McElreath (2020):
 
 ```{r prior}
 
 prior <- c(
-  set_prior("normal(0,1)", class = "b"), # can be improved
+  set_prior("normal(0,1)", class = "b"),
   set_prior("normal(0,1.5)",
     class = "b", # specific priors for parameters interpretable as the logit of an actual proportion
     # i.e. wasp-Origin-specific intercepts
@@ -420,7 +420,7 @@ prior <- c(
       "Wasp_host_speciesAphis_urticata"
     )
   ),
-  set_prior("normal(0,1)", class = "sd"), # can be replaced by exponential(1) (larger)
+  set_prior("normal(0,1)", class = "sd"), # can be replaced by exponential(1) (heavier-tailed)
   set_prior("lkj(2)", class = "cor") ## correlations between random effects
   # can loosen that prior with lkj(1)
 )
@@ -959,7 +959,25 @@ fits %>%
 
 
 ```
+
 ```{r relative pairwise-diff}
+## Differences between hamiltonella origins, grouped by host origin, relative to hamiltonella-free
+fits_scaled %>%
+  mutate(.iteration = .draw) %>%
+  group_by(Wasp_host_species) %>%
+  compare_levels(.linpred, by = Hamiltonella_host_species) %>%
+  mean_hdi(.linpred) %>% ## here with mean, but it also works with mean_hdi, median_qi, mean_qi
+  mutate(.linpred = round(.linpred, digits = 2)) %>%
+  mutate(.linpred = cell_spec(.linpred,
+    color = ifelse(.linpred > 0 & .lower > 0, "green",
+      ifelse(.linpred < 0 & .upper < 0,
+        "red", "black"
+      )
+    )
+  )) %>% ## color postive and negative values that do not overlap the zero
+  kbl(booktabs = T, linesep = "", escape = FALSE) %>%
+  kable_paper("striped", full_width = F) %>%
+  scroll_box(width = "100%", height = "300px")
 
 ## Differences between parasitoid origins (host), by hamiltonella origin (original host), relative to hamiltonella-free
 fits_scaled %>%
@@ -978,6 +996,9 @@ fits_scaled %>%
   kbl(booktabs = T, linesep = "", escape = FALSE) %>%
   kable_paper("striped", full_width = F) %>%
   scroll_box(width = "100%", height = "300px")
+
+
+
 
 ```
 
@@ -1085,6 +1106,8 @@ varcomps <- var_line %>%
   select(Vline, .draw) %>%
   left_join(var_fix) %>%
   left_join(var_replicate_aphid)
+
+varcomps %>% mean_hdi(VF/(VF+Vline))
 ```
 
 that's it! we can plot it
