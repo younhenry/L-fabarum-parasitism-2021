@@ -36,6 +36,7 @@ library(ggrepel) # CRAN v0.9.1
 library(patchwork) # CRAN v1.1.1
 
 library(here) # CRAN v1.0.1
+here:i_am("R/script_mapping-samples_rmd.Rmd")
 ## tool for workspace location management
 ## automatically detects the workspace after loading the package if Rstudio was opened using the script file (or through a R project)
 ## load last to avoid conflicts
