@@ -40,6 +40,7 @@ library(kableExtra) # CRAN v1.3.4
 library(ggh4x) # [github::teunbrand/ggh4x] v0.2.1 ## used for facet_nested in second bubbleplot
 
 library(here) # CRAN v1.0.1
+here::i_am("R/script_parasitism_rmd.Rmd")
 
 options(mc.cores = 4) ## reduce/increase depending on cores available
 ```
