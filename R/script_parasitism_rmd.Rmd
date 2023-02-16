@@ -39,6 +39,8 @@ library(kableExtra) # CRAN v1.3.4
 
 library(ggh4x) # [github::teunbrand/ggh4x] v0.2.1 ## used for facet_nested in second bubbleplot
 
+library(flextable) # CRAN v0.8.5
+
 library(here) # CRAN v1.0.1
 here::i_am("R/script_parasitism_rmd.Rmd")
 
@@ -716,7 +718,7 @@ Then we make plots
 ```{r plot-relative-ctrl-by-hamiltonella_origin}
 
 plot_scaled <- ggplot(fits_scaled) +
-  stat_eye(aes(Origin_ham, .linpred, fill = Origin_ham),
+  stat_eye(aes(Origin_ham, .linpred, fill = Origin_para),
     normalize = "xy",
     .width = c(0.001, 0.95), slab_alpha = 0.5
   ) +
@@ -897,48 +899,77 @@ fits_logit2 %>%
 More generally, we may want to extract tables with modeled pairwise differences between any treatments/variables for the Results
 
 ```{r pairwise-diff}
+
 ## Differences between parasitoid origins (host), by hamiltonella origin (original host)
-fits %>%
+table_by_ham <-flextable(fits %>%
   mutate(.iteration = .draw) %>%
   group_by(Hamiltonella_host_species) %>%
   compare_levels(.epred, by = Wasp_host_species) %>%
   mean_hdi(.epred) %>% ## here with mean, but it also works with mean_hdi, median_qi, mean_qi
+  mutate(.lower = round(.lower, digits = 2)) %>%
+  mutate(.upper = round(.upper, digits = 2)) %>%
   mutate(.epred = round(.epred, digits = 2)) %>%
-  mutate(.epred = cell_spec(.epred,
-    color = ifelse(.epred > 0 & .lower > 0, "green",
-      ifelse(.epred < 0 & .upper < 0,
-        "red", "black"
-      )
-    )
-  )) %>% ## color postive and negative values that do not overlap the zero
-  kbl(booktabs = T, linesep = "", escape = FALSE) %>%
-  kable_paper("striped", full_width = F) %>%
-  scroll_box(width = "100%", height = "300px")
+  select(Hamiltonella_host_species, Wasp_host_species, .epred, .lower, .upper) %>%
+  mutate(Hamiltonella_host_species = str_replace_all(Hamiltonella_host_species, "_", " "),
+         Wasp_host_species = str_replace_all(Wasp_host_species, "_", " ")) %>%
+  mutate(Hamiltonella_host_species = str_replace_all(Hamiltonella_host_species, "Aphis", "A."),
+         Wasp_host_species = str_replace_all(Wasp_host_species, "Aphis", "A.")) %>%
+  rename("H. defensa host species" = "Hamiltonella_host_species",
+           "Compared L. fabarum host species" = "Wasp_host_species",
+        "LowerCI" = ".lower",
+       "Prediction" = ".epred",
+       "UpperCI" = ".upper")) %>%
+color(~Prediction > 0 & LowerCI > 0, ~Prediction, color="#539c4e") %>%
+bold(~Prediction > 0 & LowerCI > 0, ~Prediction, bold=TRUE) %>%
+color(~Prediction < 0 & UpperCI < 0, ~Prediction, color="#ad2323") %>%
+bold(~Prediction < 0 & UpperCI < 0, ~Prediction, bold=TRUE) %>%
+bold(part="header", bold=TRUE) %>%
+set_table_properties(layout = "autofit") %>%
+bg(bg="lightgrey", part = "header") %>%
+fontsize(size = 9, part = "body")
 
-
+if(file.exists(here("R_output", "table_diff_by_ham_origins.docx")))
+{
+}else{
+    save_as_docx(table_by_ham, path = here("R_output", "table_diff_by_ham_origins.docx"))
+  }
 
 ## Differences between hamiltonella origins, by parasitoid origin
-fits %>%
+table_by_wasp <-flextable(fits %>%
   mutate(.iteration = .draw) %>%
   group_by(Wasp_host_species) %>%
   compare_levels(.epred, by = Hamiltonella_host_species) %>%
   mean_hdi(.epred) %>% ## here with mean, but it also works with mean_hdi, median_qi, mean_qi
+  mutate(.lower = round(.lower, digits = 2)) %>%
+  mutate(.upper = round(.upper, digits = 2)) %>%
   mutate(.epred = round(.epred, digits = 2)) %>%
-  mutate(.epred = cell_spec(.epred,
-    color = ifelse(.epred > 0 & .lower > 0, "green",
-      ifelse(.epred < 0 & .upper < 0,
-        "red", "black"
-      )
-    )
-  )) %>%
-  kbl(booktabs = T, linesep = "", escape = FALSE) %>%
-  kable_paper("striped", full_width = F) %>%
-  scroll_box(width = "100%", height = "300px")
+  select(Hamiltonella_host_species, Wasp_host_species, .epred, .lower, .upper) %>%
+  mutate(Hamiltonella_host_species = str_replace_all(Hamiltonella_host_species, "_", " "),
+         Wasp_host_species = str_replace_all(Wasp_host_species, "_", " ")) %>%
+  mutate(Hamiltonella_host_species = str_replace_all(Hamiltonella_host_species, "Aphis", "A."),
+         Wasp_host_species = str_replace_all(Wasp_host_species, "Aphis", "A.")) %>%
+  rename("Compared H. defensa host species" = "Hamiltonella_host_species",
+           "L. fabarum host species" = "Wasp_host_species",
+        "LowerCI" = ".lower",
+       "Prediction" = ".epred",
+       "UpperCI" = ".upper")) %>%
+color(~Prediction > 0 & LowerCI > 0, ~Prediction, color="#539c4e") %>%
+bold(~Prediction > 0 & LowerCI > 0, ~Prediction, bold=TRUE) %>%
+color(~Prediction < 0 & UpperCI < 0, ~Prediction, color="#ad2323") %>%
+bold(~Prediction < 0 & UpperCI < 0, ~Prediction, bold=TRUE) %>%
+bold(part="header", bold=TRUE) %>%
+set_table_properties(layout = "autofit") %>%
+bg(bg="lightgrey", part = "header") %>%
+fontsize(size = 9, part = "body")
 
-
+if(file.exists(here("R_output", "table_diff_by_wasp_origins.docx")))
+{
+}else{
+    save_as_docx(table_by_wasp, path = here("R_output", "table_diff_by_wasp_origins.docx"))
+  }
 
 ## All pairwise differences between all combinations of hamiltonella origin x parasitoid origin
-fits %>%
+table_by_combo <-flextable(fits %>%
   mutate(.iteration = .draw) %>%
   mutate(combo_wasp.ham = interaction(
     Wasp_host_species,
@@ -946,60 +977,104 @@ fits %>%
   )) %>%
   compare_levels(.epred, by = combo_wasp.ham) %>%
   mean_hdi(.epred) %>% ## here with mean, but it also works with mean_hdi, median_qi, mean_qi
+  mutate(.lower = round(.lower, digits = 2)) %>%
+  mutate(.upper = round(.upper, digits = 2)) %>%
   mutate(.epred = round(.epred, digits = 2)) %>%
-  mutate(.epred = cell_spec(.epred,
-    color = ifelse(.epred > 0 & .lower > 0, "green",
-      ifelse(.epred < 0 & .upper < 0,
-        "red", "black"
-      )
-    )
-  )) %>%
-  kbl(booktabs = T, linesep = "", escape = FALSE) %>%
-  kable_paper("striped", full_width = F) %>%
-  scroll_box(width = "100%", height = "300px")
+  select(combo_wasp.ham, .epred, .lower, .upper) %>%
+  mutate(combo_wasp.ham = str_replace_all(combo_wasp.ham, "_", " ")) %>%
+  mutate(combo_wasp.ham = str_replace_all(combo_wasp.ham, "Aphis", "A.")) %>%
+  rename("Compared H. defensa x L. fabarum host species combo" = "combo_wasp.ham",
+        "LowerCI" = ".lower",
+       "Prediction" = ".epred",
+       "UpperCI" = ".upper")) %>%
+color(~Prediction > 0 & LowerCI > 0, ~Prediction, color="#539c4e") %>%
+bold(~Prediction > 0 & LowerCI > 0, ~Prediction, bold=TRUE) %>%
+color(~Prediction < 0 & UpperCI < 0, ~Prediction, color="#ad2323") %>%
+bold(~Prediction < 0 & UpperCI < 0, ~Prediction, bold=TRUE) %>%
+bold(part="header", bold=TRUE) %>%
+set_table_properties(layout = "autofit") %>%
+bg(bg="lightgrey", part = "header") %>%
+fontsize(size = 9, part = "body")
 
+## Output tables
+table_by_ham
+table_by_wasp
+table_by_combo
 
 ```
 
 ```{r relative pairwise-diff}
 ## Differences between hamiltonella origins, grouped by host origin, relative to hamiltonella-free
-fits_scaled %>%
-  mutate(.iteration = .draw) %>%
-  group_by(Wasp_host_species) %>%
-  compare_levels(.linpred, by = Hamiltonella_host_species) %>%
-  mean_hdi(.linpred) %>% ## here with mean, but it also works with mean_hdi, median_qi, mean_qi
-  mutate(.linpred = round(.linpred, digits = 2)) %>%
-  mutate(.linpred = cell_spec(.linpred,
-    color = ifelse(.linpred > 0 & .lower > 0, "green",
-      ifelse(.linpred < 0 & .upper < 0,
-        "red", "black"
-      )
-    )
-  )) %>% ## color postive and negative values that do not overlap the zero
-  kbl(booktabs = T, linesep = "", escape = FALSE) %>%
-  kable_paper("striped", full_width = F) %>%
-  scroll_box(width = "100%", height = "300px")
-
-## Differences between parasitoid origins (host), by hamiltonella origin (original host), relative to hamiltonella-free
-fits_scaled %>%
+table_by_ham_scaled <-flextable(fits_scaled %>%
   mutate(.iteration = .draw) %>%
   group_by(Hamiltonella_host_species) %>%
   compare_levels(.linpred, by = Wasp_host_species) %>%
   mean_hdi(.linpred) %>% ## here with mean, but it also works with mean_hdi, median_qi, mean_qi
+  mutate(.lower = round(.lower, digits = 2)) %>%
+  mutate(.upper = round(.upper, digits = 2)) %>%
   mutate(.linpred = round(.linpred, digits = 2)) %>%
-  mutate(.linpred = cell_spec(.linpred,
-    color = ifelse(.linpred > 0 & .lower > 0, "green",
-      ifelse(.linpred < 0 & .upper < 0,
-        "red", "black"
-      )
-    )
-  )) %>% ## color postive and negative values that do not overlap the zero
-  kbl(booktabs = T, linesep = "", escape = FALSE) %>%
-  kable_paper("striped", full_width = F) %>%
-  scroll_box(width = "100%", height = "300px")
+  select(Hamiltonella_host_species, Wasp_host_species, .linpred, .lower, .upper) %>%
+  mutate(Hamiltonella_host_species = str_replace_all(Hamiltonella_host_species, "_", " "),
+         Wasp_host_species = str_replace_all(Wasp_host_species, "_", " ")) %>%
+  mutate(Hamiltonella_host_species = str_replace_all(Hamiltonella_host_species, "Aphis", "A."),
+         Wasp_host_species = str_replace_all(Wasp_host_species, "Aphis", "A.")) %>%
+  rename("H. defensa host species" = "Hamiltonella_host_species",
+           "Compared L. fabarum host species" = "Wasp_host_species",
+        "LowerCI" = ".lower",
+       "Prediction" = ".linpred",
+       "UpperCI" = ".upper")) %>%
+color(~Prediction > 0 & LowerCI > 0, ~Prediction, color="#539c4e") %>%
+bold(~Prediction > 0 & LowerCI > 0, ~Prediction, bold=TRUE) %>%
+color(~Prediction < 0 & UpperCI < 0, ~Prediction, color="#ad2323") %>%
+bold(~Prediction < 0 & UpperCI < 0, ~Prediction, bold=TRUE) %>%
+bold(part="header", bold=TRUE) %>%
+set_table_properties(layout = "autofit") %>%
+bg(bg="lightgrey", part = "header") %>%
+fontsize(size = 9, part = "body")
 
+if(file.exists(here("R_output", "table_diff_by_ham_scaled.docx")))
+{
+}else{
+    save_as_docx(table_by_ham_scaled, path = here("R_output", "table_diff_by_ham_scaled.docx"))
+  }
 
+## Differences between parasitoid origins (host), by hamiltonella origin (original host), relative to hamiltonella-free
+table_by_wasp_scaled <-flextable(fits_scaled %>%
+  mutate(.iteration = .draw) %>%
+  group_by(Wasp_host_species) %>%
+  compare_levels(.linpred, by = Hamiltonella_host_species) %>%
+  mean_hdi(.linpred) %>% ## here with mean, but it also works with mean_hdi, median_qi, mean_qi
+  mutate(.lower = round(.lower, digits = 2)) %>%
+  mutate(.upper = round(.upper, digits = 2)) %>%
+  mutate(.linpred = round(.linpred, digits = 2)) %>%
+  select(Hamiltonella_host_species, Wasp_host_species, .linpred, .lower, .upper) %>%
+  mutate(Hamiltonella_host_species = str_replace_all(Hamiltonella_host_species, "_", " "),
+         Wasp_host_species = str_replace_all(Wasp_host_species, "_", " ")) %>%
+  mutate(Hamiltonella_host_species = str_replace_all(Hamiltonella_host_species, "Aphis", "A."),
+         Wasp_host_species = str_replace_all(Wasp_host_species, "Aphis", "A.")) %>%
+  rename("Compared H. defensa host species" = "Hamiltonella_host_species",
+           "L. fabarum host species" = "Wasp_host_species",
+        "LowerCI" = ".lower",
+       "Prediction" = ".linpred",
+       "UpperCI" = ".upper")) %>%
+color(~Prediction > 0 & LowerCI > 0, ~Prediction, color="#539c4e") %>%
+bold(~Prediction > 0 & LowerCI > 0, ~Prediction, bold=TRUE) %>%
+color(~Prediction < 0 & UpperCI < 0, ~Prediction, color="#ad2323") %>%
+bold(~Prediction < 0 & UpperCI < 0, ~Prediction, bold=TRUE) %>%
+bold(part="header", bold=TRUE) %>%
+set_table_properties(layout = "autofit") %>%
+bg(bg="lightgrey", part = "header") %>%
+fontsize(size = 9, part = "body")
 
+if(file.exists(here("R_output", "table_diff_by_wasp_scaled.docx")))
+{
+}else{
+    save_as_docx(table_by_wasp_scaled, path = here("R_output", "table_diff_by_wasp_scaled.docx"))
+  }
+
+## Output tables
+table_by_ham_scaled
+table_by_wasp_scaled
 
 ```
 
