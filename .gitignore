@@ -2,3 +2,7 @@
 *.Rdata
 R/.Rhistory
 *.pdf
+R_output/table_diff_by_wasp_scaled.docx
+R_output/table_diff_by_wasp_origins.docx
+R_output/table_diff_by_ham_scaled.docx
+R_output/table_diff_by_ham_origins.docx
