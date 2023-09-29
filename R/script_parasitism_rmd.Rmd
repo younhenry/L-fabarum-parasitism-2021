@@ -37,9 +37,17 @@ library(ggtext) # CRAN v0.1.1
 
 library(kableExtra) # CRAN v1.3.4
 
-library(ggh4x) # [github::teunbrand/ggh4x] v0.2.1 ## used for facet_nested in second bubbleplot
+library(ggh4x) # [github::teunbrand/ggh4x] v0.2.1 ## used for facet_nested in bubbleplot
 
 library(flextable) # CRAN v0.8.5
+
+library(extraDistr) # CRAN v1.9.1
+
+library(directlabels) # CRAN v2021.1.13
+
+library(ggrepel) # CRAN v0.9.1
+
+library(gridExtra) # CRAN v2.3
 
 library(here) # CRAN v1.0.1
 here::i_am("R/script_parasitism_rmd.Rmd")
@@ -91,7 +99,7 @@ We had to remove one entire aphid line from the loaded raw data, as we realized 
 We also remove 4 rows (out of >1800) scored `NA` due to experimental error (e.g. missing parasitoid).
 Then we create a full ID for the aphid lines replicates
 
-```{r prep-data1}
+```{r cleaning-data}
 data <- na.omit(raw_data) %>%
   filter(Aphid_line != "TR-0191") %>%
   mutate(
@@ -101,23 +109,40 @@ data <- na.omit(raw_data) %>%
 
 From there we continue by converting aphid and parasitoid line-level info to factor, and re-order the factor levels in a custom way that's visually appealing for some plots:
 
-```{r prep-data2}
+```{r preparation-data}
 ## tinkering better order of wasps for plotting
 order.origin <- c(
   "Aphis_urticata", "Aphis_ruborum", "Aphis_fabae_fabae",
   "Aphis_hederae"
 )
 
-data <- data %>%
-  mutate(Wasp_host_species = factor(Wasp_host_species,
-    levels = order.origin
-  ))
+order.aphid.line <- c(
+  "TR-0016", "TR-0103", "TR-0131", "TR-0619", "TR-0042", "TR-0076", "TR-0214", "TR-0244"
+)
 
 order.genotypes <- as.factor(c(
   12, 11, 3, 15, 18, 19, 16, 17, 14, 13, 6, 8, 7,
   1, 9, 2, 10, 5, 4
 ))
 
+order.wasps.genotype <- c(
+  "Yp20-027", "Yp20-004", "Yp20-058", "Yp20-075",
+  "Yp20-081", "S251", "Yp20-070", "Yp20-003",
+  "Yp20-021", "Yp20-044", "Yp20-055", "Yp20-072",
+  "Yp20-080", "Yp20-038", "Yp20-006", "Yp20-013",
+  "Yp20-035", "Yp20-009", "Yp20-079", "Yp20-037",
+  "Yp20-050", "Yp20-060", "Yp20-068", "Yp20-084",
+  "F316", "G339", "G363", "G392", "S350", "Yp20-032",
+  "Yp20-002", "Yp20-033", "Yp20-048", "Yp20-063",
+  "Yp20-071"
+)
+
+## reordering the main table
+
+data <- data %>%
+  mutate(Wasp_host_species = factor(Wasp_host_species,
+    levels = order.origin
+  ))
 
 data <- data %>%
   mutate(
@@ -127,6 +152,7 @@ data <- data %>%
     Parasitoid_line = factor(Parasitoid_line),
     Aphid_line = factor(Aphid_line)
   )
+
 ```
 
 ## Some data relabelling
@@ -202,22 +228,6 @@ To have a rough look at how parasitism success is distributed among line combina
 
 We start by making a summary object that contains the mean parasitism success per strain combo (*Hamiltonella* x parasitoid):
 
-```{r lines-means}
-obsmeans <- data %>%
-  group_by(
-    Hamiltonella_host_species,
-    Wasp_host_species,
-    Origin_ham, Origin_para, Origin_para2,
-    Wasp_genotype, Parasitoid_line, Aphid_line, Origin_ham2
-  ) %>%
-  summarise(
-    mean_success_obs = mean(Mummies_amount / Nymphs_corrected, na.rm = TRUE),
-    sd_obs = sd(Mummies_amount / Nymphs_corrected, na.rm = TRUE),
-    N_obs = sum(Nymphs_corrected)
-  ) %>%
-  ungroup()
-```
-
 
 ```{r color-code}
 colors_wasp <- c(
@@ -244,78 +254,31 @@ colors_aphid <- c(
 ```
 
 
-```{r overlook-bubbleplot}
-ggSize <- 0.25
-bubbles <- ggplot(data = NULL, aes(Parasitoid_line, Aphid_line)) +
-  geom_point(
-    data = obsmeans,
-    aes(size = mean_success_obs * 25, color = Wasp_host_species),
-    shape = 16
-  ) + ## adjust size to frequency
-  geom_text(
-    data = obsmeans[obsmeans$mean_success_obs >= 0.01, ],
-    aes(label = round(mean_success_obs * 100, 0)),
-    size = 3.5
-  ) +
-  scale_shape_identity() +
-  scale_size_identity() + ## do not plot zero frequency
-  scale_colour_manual(values = colors_wasp) + ## define custom colors for protected and unprotected
-  labs(title = NULL, x = "Parasitoid line", y = "Aphid line") +
-  theme(legend.position = "none") +
-  theme(
-    strip.text.y = element_markdown(angle = 0),
-    strip.text.x = element_markdown(),
-    panel.background = element_blank(),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    legend.position = "none",
-    axis.title.y = element_text(size = 10),
-    axis.title.x = element_text(size = 10, vjust = -1),
-    axis.text.x = element_text(angle = 90, size = 10, colour = "black"),
-    axis.text.y = element_text(size = 10, colour = "black"),
-    axis.ticks = element_line(size = ggSize),
-    axis.line = element_line(size = ggSize, colour = "black")
-  )
 
-bubbles <- bubbles +
-  facet_grid(
-    rows = vars(fct_rev(Origin_ham)),
-    cols = vars(Origin_para),
-    scales = "free", space = "free"
-  )
+```{r preparation-data viz}
+## observed means by lines
 
-bubbles
-
-if (file.exists(here("R_output", "Plot_bubbles.pdf"))) {
-
-} else {
-  pdf(height = 6, width = 12, file = here("R_output", "Plot_bubbles.pdf"))
-  bubbles
-  dev.off()
-}
-```
-
-
-```{r prep-bubble2}
-## bubble plot
-
-order.wasps.genotype <- c(
-  "Yp20-027", "Yp20-004", "Yp20-058", "Yp20-075",
-  "Yp20-081", "S251", "Yp20-070", "Yp20-003",
-  "Yp20-021", "Yp20-044", "Yp20-055", "Yp20-072",
-  "Yp20-080", "Yp20-038", "Yp20-006", "Yp20-013",
-  "Yp20-035", "Yp20-009", "Yp20-079", "Yp20-037",
-  "Yp20-050", "Yp20-060", "Yp20-068", "Yp20-084",
-  "F316", "G339", "G363", "G392", "S350", "Yp20-032",
-  "Yp20-002", "Yp20-033", "Yp20-048", "Yp20-063",
-  "Yp20-071"
-)
+obsmeans <- data %>%
+  group_by(
+    Hamiltonella_host_species,
+    Wasp_host_species,
+    Origin_ham, Origin_para, Origin_para2,
+    Wasp_genotype, Parasitoid_line, Aphid_line, Origin_ham2
+  ) %>%
+  summarise(
+    mean_success_obs = mean(Mummies_amount / Nymphs_corrected, na.rm = TRUE),
+    sd_obs = sd(Mummies_amount / Nymphs_corrected, na.rm = TRUE),
+    N_obs = sum(Nymphs_corrected)
+  ) %>%
+  ungroup()
 
 ## get the information on which genotype is generalist or specialist from the data_parasitoids table
 
 niche_info <- data_parasitoids %>%
   select(Wasp_genotype = genotype, niche) %>%
   distinct()
+
+## completing and arranging the observing means table
 
 obsmeans2 <- obsmeans %>%
   left_join(niche_info) %>%
@@ -334,10 +297,24 @@ obsmeans2 <- obsmeans %>%
   arrange(Wasp_host_species) %>%
   arrange(Wasp_genotype) %>%
   arrange(niche)
+
+## creating a new column containing the parasitism success of the corresponding control for each test
+
+obsmeans_ref<-subset(obsmeans2, obsmeans2$Aphid_line=="NTR-407") %>%
+  slice(rep(1:n(), each = 8)) %>%
+  arrange(Parasitoid_line, Aphid_line)
+  
+obsmeans_relative<-subset(obsmeans2, obsmeans2$Aphid_line!="NTR-407") %>%
+  arrange(Parasitoid_line, Aphid_line)
+
+obsmeans_relative$difference_to_control <- obsmeans_relative$mean_success_obs-obsmeans_ref$mean_success_obs
+  obsmeans_relative <- obsmeans_relative %>%
+    mutate(Aphid_line = factor(Aphid_line, levels = order.aphid.line)) %>%
+  arrange(Parasitoid_line, Aphid_line)
+
 ```
 
-
-```{r overlook-bubbleplot2}
+```{r overlook-bubbleplot}
 ggSize <- 0.25
 bubbles_genotype <- ggplot(data = NULL, aes(Parasitoid_line, Aphid_line)) +
   geom_point(
@@ -401,6 +378,134 @@ if (file.exists(here("R_output", "Plot_bubbles_genotype.pdf"))) {
 }
 ```
 
+```{r overlook-relative success}
+ggSize <- 0.25
+plot_relative_perf <- ggplot(aes(x = Aphid_line, y = difference_to_control, fill = Origin_para, colour = Origin_para, group = Parasitoid_line), data = obsmeans_relative)+
+  geom_point(alpha = 0.6) +
+  geom_line(alpha = 0.6) +
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_text_repel(
+    data = subset(obsmeans_relative, obsmeans_relative$Aphid_line == "TR-0244"),
+    aes(label = Parasitoid_line, color = "black"),
+    box.padding = 0.05,
+    size = 2,
+    hjust = 0,
+    nudge_x = 0.5,
+    direction = "y",
+    segment.color = "grey",
+    segment.size = 0.2,
+    show.legend = FALSE,
+    min.segment.length = 0
+  ) +
+    annotate(
+    geom = "rect", xmin = 12, xmax = Inf, ymin = -Inf, ymax = Inf,
+    fill = "white"
+  ) +
+  scale_fill_manual(values = colors_wasp2) +
+  scale_color_manual(values = colors_wasp2) +
+  xlab("Aphid line") +
+  ylab("Difference of parasitism success \n relative to unprotected line") +
+  facet_wrap(~ fct_relevel(Origin_para), nrow = 1) +
+  coord_cartesian(clip="off")+
+  theme(legend.position = "none") +
+  theme(
+    panel.spacing.x = unit(0.5, "lines"),
+    panel.background = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.position = "none",
+    axis.title.y = element_text(size = 12),
+    axis.title.x = element_text(size = 12, vjust = -1),
+    axis.text.x = element_text(
+      angle = 90, size = 10,
+      colour = "black", vjust = 0.4, hjust = 1
+    ),
+    axis.text.y = element_text(size = 10, colour = "black"),
+    axis.ticks = element_line(size = ggSize),
+    axis.line = element_line(size = ggSize, colour = "black"),
+    strip.text.x = element_markdown(size = 12),
+    plot.margin = margin(0.2,1,0.2,0.2, "cm")
+  )
+
+plot_relative_perf
+
+if (file.exists(here("R_output", "plot_relative_perf.pdf"))) {
+
+} else {
+  pdf(
+    height = 5, width = 10,
+    file = here("R_output", "plot_relative_perf.pdf")
+  )
+  print(plot_relative_perf)
+  dev.off()
+}
+
+
+```
+
+```{r overlook-bubbleplot2 (relative)}
+ggSize <- 0.25
+pal <- colorRampPalette(c("#ff4d4d", "lightgrey", "#4d51ff"))
+bubbles_genotype_relative <- ggplot(data = NULL, aes(Parasitoid_line, Aphid_line)) +
+  geom_point(
+    data = obsmeans_relative,
+    aes(size = abs(difference_to_control) * 25, color = difference_to_control),
+    shape = 16
+  ) + 
+  geom_text(
+    data = obsmeans_relative[abs(obsmeans_relative$difference_to_control) >= 0.3, ],
+    aes(label = round(difference_to_control * 100, 0)),
+    size = 3
+  ) +
+  scale_shape_identity() +
+  scale_size_identity() + ## do not plot zero frequency
+  scale_colour_gradientn(colors = pal(10)) +
+  labs(title = NULL, x = "Parasitoid line", y = "Aphid line") +
+  theme(legend.position = "none") +
+  coord_cartesian(clip = "off") +
+  ## geom_hline(yintercept=1.5,lwd=ggSize)+
+  theme(
+    strip.text.y = element_markdown(angle = 0),
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.position = "none",
+    plot.margin = margin(5.5, 5.5, 5.5, 5.5, "points"),
+    axis.title.y = element_text(size = 12),
+    axis.title.x = element_text(size = 12, vjust = -1),
+    axis.text.x = element_text(
+      angle = 90, size = 10,
+      colour = "black", vjust = 0.4, hjust = 1
+    ),
+    axis.text.y = element_text(size = 10, colour = "black"),
+    axis.ticks = element_line(size = ggSize),
+    axis.line = element_line(size = ggSize, colour = "black")
+  )
+
+bubbles_genotype_relative <- bubbles_genotype_relative +
+  facet_nested(fct_rev(Origin_ham) ~ niche + Wasp_genotype,
+    scales = "free", space = "free",
+    nest_line = element_line(),
+    strip = strip_nested(
+      by_layer_x = TRUE,
+      background_x = elem_list_rect(
+        fill = c("white", "grey85")
+      )
+    )
+  )
+
+bubbles_genotype_relative
+
+if (file.exists(here("R_output", "Plot_bubbles_genotype_relative.pdf"))) {
+
+} else {
+  pdf(
+    height = 6, width = 12,
+    file = here("R_output", "Plot_bubbles_genotype_relative.pdf")
+  )
+  bubbles_genotype_relative
+  dev.off()
+}
+```
 
 
 # Models with bayesian approach
@@ -603,17 +708,19 @@ plot_v1 <- ggplot(fits) +
     aes(Origin_para,
       Mummies_amount / Nymphs_corrected,
       group = paste(Aphid_line, Parasitoid_line),
-      color = Origin_para
-    ),
-    alpha = 0.3
+      color = Origin_para,
+      fill = Origin_para,
+      alpha = 0.5
+    )
   ) +
   stat_eye(aes(Origin_para, .epred),
     normalize = "xy",
-    .width = c(0.001, 0.95), slab_alpha = 0.5
+    .width = c(0.001, 0.95), slab_alpha = 0.6
   ) +
   scale_x_discrete("*L. fabarum* original host") +
   scale_y_continuous("Proportion of nymphs parasitized") +
   scale_color_manual(values = colors_wasp2) +
+  scale_fill_manual(values = colors_wasp2) +
   facet_wrap(~ fct_relevel(Origin_ham2, rev), nrow = 5) +
   theme_bw(base_size = 12) +
   theme(
@@ -711,6 +818,7 @@ fits_scaled <- data %>%
   left_join(translate) %>%
   arrange(Origin_para) %>%
   arrange(Origin_ham2)
+
 ```
 
 Then we make plots
@@ -1087,7 +1195,7 @@ To determine whether the beta-binomial model predicts well the expected line/gen
 fitsRE <- data %>%
   select(
     Hamiltonella_host_species, Wasp_host_species,
-    Origin_ham, Origin_para2,
+    Origin_ham, Origin_para, Origin_para2,
     Aphid_line, Wasp_genotype
   ) %>% ## we include "lineage" variables for aphids (hamiltonella) and parasitoids
   distinct() %>%
@@ -1116,6 +1224,275 @@ left_join(obsmeans, fitsRE) %>%
   theme_bw(base_size = 12) +
   theme(panel.grid.minor = element_blank()) +
   theme(aspect.ratio = 1)
+```
+
+```{r fits-with-RE-scaled}
+specialists <- unique(data_parasitoids$genotype[which(data_parasitoids$niche=="specialist")]) # only look at the fits of specialists
+
+origin_info <- data %>%
+  select(
+    Origin_para, Origin_para2, Origin_ham2,
+    Wasp_host_species, Wasp_genotype, Aphid_line
+  ) %>%
+  distinct()
+
+fitsRE_scaled <- data %>%
+  select(
+    Hamiltonella_host_species, Wasp_host_species,
+    Origin_ham, Origin_ham2, Origin_para, Origin_para2,
+    Aphid_line, Wasp_genotype
+  ) %>% ## we include "lineage" variables for aphids (hamiltonella) and parasitoids
+  distinct() %>%
+  mutate(Nymphs_corrected = 1) %>%
+  add_epred_draws(mod_betabinom,
+    re_formula = ~ (Aphid_line | Wasp_genotype)
+  ) %>% # we do not include random effects at a level below lineages
+  ungroup()
+  
+fitsRE_scaled_specialists <- fitsRE_scaled %>%
+  filter(Wasp_genotype %in% specialists) %>%
+  group_by(Wasp_genotype) %>%
+  compare_levels(.epred,
+    by = Aphid_line, comparison = "control"
+  ) %>%
+  mutate(Aphid_line = str_remove(Aphid_line, " - NTR-407")) %>%
+  left_join(origin_info)
+
+fitsRE_scaled_specialists$Wasp_genotype <- as.factor(fitsRE_scaled_specialists$Wasp_genotype)
+
+## fits scaled for all (for generalists, the estimates are computed for each possible origin)
+fitsRE_scaled_all <- fitsRE_scaled %>%
+  group_by(Wasp_genotype, Origin_para) %>%
+  compare_levels(.epred,
+    by = Aphid_line, comparison = "control"
+  ) %>%
+  mutate(Aphid_line = str_remove(Aphid_line, " - NTR-407")) %>%
+  ## computing the average effect by parasitoid genotype is also possible with the following :
+  ## group_by(.draw,Wasp_genotype,Aphid_line) %>% summarise(.epred = mean(.epred))
+  mean_hdi() %>%
+  left_join(origin_info) %>%
+  mutate(Aphid_line = factor(Aphid_line, levels = order.aphid.line)) %>%
+  arrange(Aphid_line)
+
+fitsRE_scaled_all$Wasp_genotype <- as.factor(fitsRE_scaled_all$Wasp_genotype)
+
+```
+
+```{r plot-relative-ctrl-by-hamiltonella_origin}
+## Example 1 with same origins
+fitsRE_scaled1 <- subset(fitsRE_scaled_specialists, subset = Wasp_genotype %in% c("1", "7") & Aphid_line %in% c("TR-0042", "TR-0076"))
+
+ggshapes=c(15:20)
+ggSize <- 0.25
+plot_relative_perf_example1 <- ggplot(aes(x = Aphid_line, y = .epred, fill = Origin_para), data = fitsRE_scaled1) +
+   geom_hline(yintercept = 0, lty = 2) +
+  stat_eye(
+    aes(group = Wasp_genotype, fill = Origin_para, shape = Wasp_genotype),
+    normalize = "xy",
+    slab_alpha = 0.5,
+    interval_alpha = 1,
+    .width = c(0.1, 0.95),
+    point_size = 3,
+    point_alpha = 1,
+    position=position_dodge(0.15),
+    show.legend = T) +
+  stat_summary(fun=mean, geom="line", aes(group = Wasp_genotype), size = 0.5, alpha = 1, position=position_dodge(0.15), show.legend = F)+
+  scale_fill_manual(values = colors_wasp2, breaks = c("*A. ruborum*", "*A. fabae fabae*")) +
+  scale_shape_manual(name = "*L. fabarum* <br> genotypes", values = ggshapes)+
+  xlab("Aphid line") +
+  ylab("Parasitism success difference <br> relative to the unprotected aphid line (%)") +
+  guides(fill = "none", size = "none")+
+  #facet_wrap(~Origin_para2)+
+  theme_bw(base_size = 12) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.text = element_markdown(),
+    axis.text.x = element_markdown(angle = 0, size = 10, colour = "black", vjust = 0.4, hjust = 1),
+    axis.title.x = element_markdown(),
+    axis.title.y = element_markdown(),
+    axis.text.y = element_text(size = 10, colour = "black"),
+    axis.ticks = element_line(size = ggSize),
+    axis.line = element_line(size = ggSize, colour = "black"),
+    legend.text = element_markdown(),
+    legend.title = element_markdown(size = 10),
+    legend.key = element_rect(fill = "transparent"),
+    plot.margin = margin(0.2,0.2,0.2,0.2, "cm")
+  )
+
+plot_relative_perf_example1
+
+if (file.exists(here("R_output", "plot_relative_perf_example1.pdf"))) {
+
+} else {
+  pdf(
+    height = 5, width = 5,
+    file = here("R_output", "plot_relative_perf_example1.pdf")
+  )
+  print(plot_relative_perf_example1)
+  dev.off()
+}
+
+## Example 2 with different origins
+
+fitsRE_scaled2 <- subset(fitsRE_scaled_specialists, subset = Wasp_genotype %in% c("1", "4") & Aphid_line %in% c("TR-0042", "TR-0214"))
+fitsRE_scaled3 <- subset(fitsRE_scaled_specialists, subset = Wasp_genotype %in% c("7", "5") & Aphid_line %in% c("TR-0076", "TR-0214"))
+fitsRE_scaled4 <- subset(fitsRE_scaled_specialists, subset = Wasp_genotype %in% c("11", "14") & Aphid_line %in% c("TR-0131", "TR-0619"))
+
+ggshapes=c(15:20)
+ggSize <- 0.25
+plot_relative_perf_example2 <- ggplot(aes(x = Aphid_line, y = .epred, fill = Origin_para), data = fitsRE_scaled2) +
+   geom_hline(yintercept = 0, lty = 2) +
+  stat_eye(
+    aes(group = Wasp_genotype, fill = Origin_para, shape = Wasp_genotype),
+    normalize = "xy",
+    slab_alpha = 0.5,
+    interval_alpha = 1,
+    .width = c(0.1, 0.95),
+    point_size = 3,
+    point_alpha = 1,
+    position=position_dodge(0.15),
+    show.legend = T) +
+  stat_summary(fun=mean, geom="line", aes(group = Wasp_genotype), size = 0.5, alpha = 1, position=position_dodge(0.15), show.legend = F)+
+  scale_fill_manual(name = "*L. fabarum* origin", values = colors_wasp2, breaks = c("*A. hederae*", "*A. fabae fabae*")) +
+  scale_shape_manual(name = "*L. fabarum* genotypes", values = ggshapes)+
+  scale_y_continuous(limits = c(-0.75, 0.5)) +
+  xlab("Aphid line") +
+  ylab("Parasitism success difference <br> relative to the unprotected aphid line (%)") +
+  guides(size = "none")+
+  #facet_wrap(~Origin_para2)+
+  theme_bw(base_size = 12) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.text = element_markdown(),
+    axis.text.x = element_markdown(angle = 0, size = 10, vjust = 0.4, hjust = 0.5, colour = "black"),
+    axis.title.x = element_markdown(),
+    axis.title.y = element_markdown(),
+    axis.text.y = element_text(size = 10, colour = "black"),
+    axis.ticks = element_line(size = ggSize),
+    axis.line = element_line(size = ggSize, colour = "black"),
+    legend.text = element_markdown(),
+    legend.title = element_markdown(size = 10),
+    legend.key = element_rect(fill = "transparent"),
+    plot.margin = margin(0.2,0.2,0.2,0.2, "cm")
+  )
+
+plot_relative_perf_example2
+
+if (file.exists(here("R_output", "plot_relative_perf_example2.pdf"))) {
+
+} else {
+  pdf(
+    height = 5, width = 5,
+    file = here("R_output", "plot_relative_perf_example2.pdf")
+  )
+  print(plot_relative_perf_example2)
+  dev.off()
+}
+
+plot_relative_perf_example3 <- ggplot(aes(x = Aphid_line, y = .epred, fill = Origin_para), data = fitsRE_scaled3) +
+   geom_hline(yintercept = 0, lty = 2) +
+  stat_eye(
+    aes(group = Wasp_genotype, fill = Origin_para, shape = Wasp_genotype),
+    normalize = "xy",
+    slab_alpha = 0.5,
+    interval_alpha = 1,
+    .width = c(0.1, 0.95),
+    point_size = 3,
+    point_alpha = 1,
+    position=position_dodge(0.15),
+    show.legend = T) +
+  stat_summary(fun=mean, geom="line", aes(group = Wasp_genotype), size = 0.5, alpha = 1, position=position_dodge(0.15), show.legend = F)+
+  scale_fill_manual(name = "*L. fabarum* origin", values = colors_wasp2, breaks = c("*A. hederae*", "*A. fabae fabae*")) +
+  scale_shape_manual(name = "*L. fabarum* genotypes", values = ggshapes)+
+  scale_y_continuous(limits = c(-0.75, 0.5)) +
+  xlab("Aphid line") +
+  ylab("Parasitism success difference <br> relative to the unprotected aphid line (%)") +
+  guides(size = "none")+
+  #facet_wrap(~Origin_para2)+
+  theme_bw(base_size = 12) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.text = element_markdown(),
+    axis.text.x = element_markdown(angle = 0, size = 10, vjust = 0.4, hjust = 0.5, colour = "black"),
+    axis.title.x = element_markdown(),
+    axis.title.y = element_markdown(),
+    axis.text.y = element_text(size = 10, colour = "black"),
+    axis.ticks = element_line(size = ggSize),
+    axis.line = element_line(size = ggSize, colour = "black"),
+    legend.text = element_markdown(),
+    legend.title = element_markdown(size = 10),
+    legend.key = element_rect(fill = "transparent"),
+    plot.margin = margin(0.2,0.2,0.2,0.2, "cm")
+  )
+
+plot_relative_perf_example3
+
+```
+
+```{r overlook-relative success estimates from posteriors}
+ggSize <- 0.25
+plot_relative_perf_posteriors <- ggplot(aes(x = Aphid_line, y = .epred, fill = Origin_para, colour = Origin_para, group = Wasp_genotype), data = fitsRE_scaled_all)+
+  geom_ribbon(aes(ymin = .lower, ymax = .upper), fill = "grey70", alpha = 0.1,  colour = NA)+
+  geom_point(alpha = 0.6) +
+  geom_line(alpha = 0.6) +
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_text_repel(
+    data = subset(fitsRE_scaled_all, fitsRE_scaled_all$Aphid_line == "TR-0244"),
+    aes(label = Wasp_genotype, colour = "black"),
+    box.padding = 0.05,
+    size = 2,
+    hjust = 0,
+    nudge_x = 0.5,
+    direction = "y",
+    segment.color = "grey",
+    segment.size = 0.2,
+    show.legend = FALSE,
+    min.segment.length = 0
+  ) +
+    annotate(
+    geom = "rect", xmin = 9, xmax = Inf, ymin = -Inf, ymax = Inf,
+    fill = "white"
+  ) +
+  scale_fill_manual(values = colors_wasp2) +
+  scale_color_manual(values = colors_wasp2) +
+  xlab("Aphid line") +
+  ylab("Parasitism success difference <br> relative to the unprotected aphid line (%)") +
+  facet_wrap(~ fct_relevel(Origin_para2), nrow = 1) +
+  coord_cartesian(clip="off")+
+  theme(legend.position = "none") +
+  theme(
+    panel.spacing.x = unit(0.5, "lines"),
+    panel.background = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.position = "none",
+    strip.text = element_markdown(),
+    axis.text.x = element_markdown(angle = 90, size = 8, colour = "black", vjust = 0.4, hjust = 1),
+    axis.title.x = element_markdown(),
+    axis.title.y = element_markdown(),
+    axis.text.y = element_text(size = 8, colour = "black"),
+    axis.ticks = element_line(size = ggSize),
+    axis.line = element_line(size = ggSize, colour = "black"),
+    strip.text.x = element_markdown(size = 8),
+    plot.margin = margin(0.2,1,0.2,0.2, "cm")
+  )
+
+plot_relative_perf_posteriors
+
+if (file.exists(here("R_output", "plot_relative_perf_posteriors_with_example.pdf"))) {
+
+} else {
+  pdf(
+    height = 8, width = 9,
+    file = here("R_output", "plot_relative_perf_posteriors_with_example.pdf")
+  )
+grid.arrange(plot_relative_perf_posteriors, plot_relative_perf_example2, plot_relative_perf_example3, layout_matrix = rbind(c(1, 1), c(2, 3)), heights = c(4, 3))
+  dev.off()
+}
+
+
 ```
 
 

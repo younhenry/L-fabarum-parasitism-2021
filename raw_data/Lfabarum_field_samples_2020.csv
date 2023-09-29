@@ -1,0 +1,108 @@
+﻿Table of the L. fabarum wasps sampled for the study;;;;;;;;
+Samples that could not successfuly establish in the lab were not used for experiements and therefore are omitted from this table;;;;;;;;
+;;;;;;;;
+sample_id: unique identifier for each Lysiphlebus fabarum clonal line;;;;;;;;
+latitude: latitude of the sampling;;;;;;;;
+longitude: longitude of the sampling;;;;;;;;
+site: general name covering multiple samples from the same location (roughly 200m diameter circle);;;;;;;;
+year: year of the collection;;;;;;;;
+plant_species: host plant from which the sample was collected;;;;;;;;
+aphid_species: name of the host species the sample was collected from;;;;;;;;
+genotype: arbitrary number given to each unique genotype, determined with the microsatellite analysis;;;;;;;;
+niche: was the genotype found in more than one host species?;;;;;;;;
+;;;;;;;;
+sample_id;latitude;longitude;site;year;plant_species;aphid_species;genotype;niche
+F316;47.38142956;8.62739129;Faellanden;2020;NA;Aphis_fabae_fabae;6;specialist
+G339;47.30356587;8.7536656;Gossau;2020;NA;Aphis_fabae_fabae;8;specialist
+G363;47.30276081;8.75474511;Gossau;2020;NA;Aphis_fabae_fabae;7;specialist
+G392;47.3036341934976;8.753816839950138 ;Gossau;2020;NA;Aphis_fabae_fabae;1;specialist
+S251;47.4878024858791;8.46107691302325;Steinmaur;2020;NA;Aphis_fabae_fabae;3;generalist
+S350;47.49225553;8.4510097;Steinmaur;2020;NA;Aphis_fabae_fabae;9;specialist
+Yp20-001;47.4917;8.44428;Steinmaur;2020;Urtica_dioica;Aphis_urticata;10;generalist
+Yp20-002;47.40595702;8.54695746;Oerlikonerstrasse;2020;Hedera_helix;Aphis_hederae;10;generalist
+Yp20-003;47.418552;8.53048;Seebachstrasse;2020;Beta_vulgaris;Aphis_fabae_fabae;2;generalist
+Yp20-004;47.41125297;8.54858778;Neudorfstrasse;2020;Rubus_fruticosus;Aphis_ruborum;12;generalist
+Yp20-006;47.4174203;8.5415899;Neunbrunnenstrasse;2020;Rubus_fruticosus;Aphis_ruborum;15;specialist
+Yp20-009;47.418799;8.588635;Wallisellen;2020;Rubus_fruticosus;Aphis_ruborum;18;specialist
+Yp20-013;47.40589686;8.5384083;Ringstrasse;2020;Rubus_fruticosus;Aphis_ruborum;15;specialist
+Yp20-021;47.40515798;8.61171204;Föhrliweg;2020;Hedera_helix;Aphis_hederae;2;generalist
+Yp20-027;47.41688434;8.53796111;Neunbrunnenstrasse;2020;Urtica_dioica;Aphis_urticata;12;generalist
+Yp20-032;47.38727164;8.47700872;Eugen_huber_strasse;2020;Chenopodium_album;Aphis_fabae_fabae;9;specialist
+Yp20-033;47.3837112961337              ;8.474806006997824              ;Friedhofstrasse;2020;Hedera_helix;Aphis_hederae;5;specialist
+Yp20-035;47.39283016;8.46817102;Suteracher;2020;Rubus_fruticosus;Aphis_ruborum;15;specialist
+Yp20-037;47.39349897019565              ;8.466570787131786              ;Pestalozziweg;2020;Rubus_fruticosus;Aphis_ruborum;19;specialist
+Yp20-038;47.39427362;8.46540132;Pestalozziweg;2020;Urtica_dioica;Aphis_urticata;11;specialist
+Yp20-044;47.40042557;8.53345048;Regensbergstrasse;2020;Hedera_helix;Aphis_hederae;2;generalist
+Yp20-048;47.39714806;8.52259478;Wunderlistrasse;2020;Hedera_helix;Aphis_hederae;5;specialist
+Yp20-050;47.39030862;8.52834941;Wasserwerkstrasse;2020;Rubus_fruticosus;Aphis_ruborum;16;specialist
+Yp20-055;47.418614;8.590125;Frohheimstrasse;2020;Hedera_helix;Aphis_hederae;2;generalist
+Yp20-058;47.39985797;8.61440094;Birchlenstrasse;2020;Rubus_fruticosus;Aphis_ruborum;12;generalist
+Yp20-060;47.40128;8.6057;Neugutstrasse;2020;Rubus_fruticosus;Aphis_ruborum;17;specialist
+Yp20-063;47.44777897;8.52957067;Glatttalstrasse;2020;Hedera_helix;Aphis_hederae;5;specialist
+Yp20-068;47.45501383;8.53625996;Flughofstrasse;2020;Rubus_fruticosus;Aphis_ruborum;14;specialist
+Yp20-070;47.39943;8.6081;Bühlwiesenstrasse;2020;Hedera_helix;Aphis_hederae;3;generalist
+Yp20-071;47.401325;8.605815;Neugutstrasse;2020;Hedera_helix;Aphis_hederae;4;specialist
+Yp20-072;47.39995;8.60812;Neugutstrasse;2020;Hedera_helix;Aphis_hederae;2;generalist
+Yp20-075;47.45359645;8.16109287;Stauwehr_nok;2020;Rubus_fruticosus;Aphis_ruborum;12;generalist
+Yp20-079;47.394147;8.593205;Bözlegstrasse;2020;Rubus_fruticosus;Aphis_ruborum;18;specialist
+Yp20-080;47.394037;8.593472;Bözlegstrasse;2020;Hedera_helix;Aphis_hederae;2;generalist
+Yp20-081;47.418968;8.588571;Frohheimstrasse;2020;Urtica_dioica;Aphis_urticata;3;generalist
+Yp20-084;47.45738282              ;8.15354227              ;Degerfeldstrasse;2020;Rubus_fruticosus;Aphis_ruborum;13;specialist
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;
+;;;;;;;;

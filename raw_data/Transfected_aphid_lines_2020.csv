@@ -1,0 +1,42 @@
+﻿Table of the lines used in the parasitism success experiment of this study;;;;;;;;;
+;;;;;;;;;
+line_id: unique identifier for each line;;;;;;;;;
+host_clone: identifier of the recipient aphid line used for the transfection;;;;;;;;;
+donor_id: identifier of the H. defensa donor aphid line we collected in the field;;;;;;;;;
+latitude: latitude of the sampling;;;;;;;;;
+longitude: longitude of the sampling;;;;;;;;;
+year: year of the collection and transfection;;;;;;;;;
+site: name of the sampling site;;;;;;;;;
+plant_species: host plant from which the sample was collected;;;;;;;;;
+aphid_species: species name of the collected sample;;;;;;;;;
+note: additionnal relevant information for each line;;;;;;;;;
+;;;;;;;;;
+line_id;host_clone;donor_id;latitude;longitude;year;site;plant_species;aphid_species;note
+TR-0016;407;Y20-0016;47.40462898;8.60924846;2020;Überlandstrasse;Urtica_dioica;Aphis_urticata;
+TR-0042;407;Y20-0042;47.42380304;8.58456789;2020;Grätzlistrasse;Beta_vulgaris;Aphis_fabae_fabae;
+TR-0076;407;A06-76;NA;NA;2006;La_grande_motte;Chenopodium_album;Aphis_fabae_fabae;Identical H. defensa genotype to one strain we sampled in 2019, in Zürich
+TR-0103;407;Y20-0103;47.40615831;8.54698826;2020;Oerlikonerstrasse;Urtica_dioica;Aphis_urticata;
+TR-0131;407;Y20-0131;47.48153;8.47129;2020;Dielsdorf;Urtica_dioica;Aphis_urticata;
+TR-0214;407;Y20-0214;47.40534147;8.60723756;2020;Seidenstrasse;Hedera_helix;Aphis_hederae;
+TR-0244;407;Y20-0244;47.41732027;8.54380666;2020;Neunbrunnenstrasse;Hedera_helix;Aphis_hederae;
+TR-0619;407;Y20-0619;47.46341033;8.1577056;2020;Wallbach;Rubus_fruticosus;Aphis_ruborum;
+NTR-0407;407;NA;NA;NA;NA;NA;NA;NA;This aphid line was collected in 2006 in St. Margarethen. It does not host H. defensa and was used as a recipient line for transfection (all TR-xxxx), or stayed untransfected as a control (NTR-0407)
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
+;;;;;;;;;
